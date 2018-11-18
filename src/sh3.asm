@@ -23,5 +23,5 @@ _init_sh3:
 	ret
 
 	.failure:
-	mov	al, 1
+	mov	al, EFAIL
 	ret

@@ -15,7 +15,7 @@ _DllMain:
 	call	init
 
 	.exit:
-	and	eax, 0xFF
+	and	eax, EFAIL
 	cmp	al, EOK
 	sete	al
 	ret
@@ -24,5 +24,9 @@ _DllMain:
 init:
 
 	call	_init_sh3
+	cmp	al, EOK
+	jne	.exit
+
+	.exit:
 	ret
 
