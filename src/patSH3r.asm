@@ -44,8 +44,19 @@ _DllMain:
 	jmp	.exit
 
 	.failure:
-	and	eax, EFAIL
-	push	eax			; push error code
+	call	_popup_error
+
+	.exit:
+	cmp	al, EOK
+	sete	al
+
+	ret
+	
+
+_popup_error:
+
+	and	eax, EFAIL		;
+	push	eax			; mask & push error code
 	push	err_message
 	push	BUFSZ
 	push	_buf
@@ -59,12 +70,9 @@ _DllMain:
 	call	_MessageBoxA@16
 	pop	eax			; restore error code
 
-	.exit:
-	cmp	al, EOK
-	sete	al
-
 	ret
-	
+
+
 _patch_mem:
 
 	; patch memory
@@ -143,6 +151,7 @@ _patSH3r_init:
 	jne	.exit
 
 	.exit:
+	call	_popup_error
 	ret
 
 
