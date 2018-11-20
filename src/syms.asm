@@ -26,10 +26,10 @@ extern _proc		; current process
 extern _buf		; temporary buffer of size BUFSZ
 
 ; --- config.asm --------------------------------------------------------------
-extern _init_config
+extern _config_init
 
 ; --- sh3.asm -----------------------------------------------------------------
 ; functions
-extern _init_sh3	; init function
+extern _sh3_init	; init function
 ; variables
 extern _fmgrofs		; offset to filemanager.dll

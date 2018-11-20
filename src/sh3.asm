@@ -14,7 +14,7 @@ fmgrfn:		db	"filemanager.dll", 0
 
 section .text ; ---------------------------------------------------------------
 
-_init_sh3:
+_sh3_init:
 
 	push	fmgrfn
 	call	_LoadLibraryA@4

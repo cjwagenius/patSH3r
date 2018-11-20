@@ -18,10 +18,11 @@ fmgr_get_int:		dd	0x00004590
 fmgr_get_dbl:		dd	0x00005610
 fmgr_get_str:		dd	0x000059b0
 
+ggg:			db	"ggg"
 
 section .text ; ---------------------------------------------------------------
 
-_init_config:
+_config_init:
 
 	mov	eax, [_fmgrofs]
 	add	[fmgr_get_bool], eax

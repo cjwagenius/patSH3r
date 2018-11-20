@@ -92,7 +92,7 @@ _patch_mem:
 	cmp	dword [esp], 0	; if no target address, don't append it
 	je	.write
 	push	eax
-	mov	edi, _buf	; find place holder for pointer
+	mov	edi, _buf	; find place-holder for pointer
 	mov	ecx, eax
 	mov	al, 0xcc
 	repne	scasb
@@ -101,8 +101,13 @@ _patch_mem:
 
 	mov	ecx, 4
 	mov	esi, esp
-	sub	dword [esi], edx; make address relative to edx
-	sub	dword [esi], 5	; remove pointer size and one op-code too
+	push	eax
+	mov	eax, edi	   ; calculate op-codes before place-holder
+	sub	eax, _buf	   ;
+	add	eax, 4		   ; add pointer size
+	sub	dword [esi], edx   ; make address relative to edx
+	sub	dword [esi], eax   ;
+	pop	eax
 	rep	movsb
 
 	.write:
@@ -123,15 +128,17 @@ _patch_mem:
 	ret
 
 	.failure:
-	call	_GetLastError@0
-	mov	[err], eax
 	mov	eax, EMEMW
 	ret
 
 
 _patSH3r_init:
 
-	call	_init_config
+	call	_sh3_init
+	cmp	al, EOK
+	jne	.exit
+
+	call	_config_init
 	cmp	al, EOK
 	jne	.exit
 
