@@ -1,9 +1,8 @@
+; vim : fdm=marker
 
 %include "syms.asm"
 
 %define DLL_ATTACH	0x01
-
-extern _GetCurrentProcess@0
 
 section .bss ; ----------------------------------------------------------------
 
@@ -19,24 +18,34 @@ err_message:	db	"Failed with error code: %d", 0
 ptc_init:	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_RET
 
 inisec:		db	"PATSH3R", 0
-str_smartpo:	db	"SmartPettyOfficer", 0
+str_smartpo:	db	"SmarterPettyOfficer", 0
 
 
 section .text ; ---------------------------------------------------------------
 
 global _DllMain
 
+extern _GetCurrentProcess@0
+
+; --- _DllMain {{{
+;
+; patches sh3.exe to call _patSH3r_init later
+;
+; arguments:
+;	[esp+4]		hinstance
+;	[esp+8]		reason (DLL_ATTACH | DLL_DETACH)
+;	[esp+12]	reserved
+;
 _DllMain:
 
 	xor	eax, eax
-	cmp	dword [esp+0x08], DLL_ATTACH ; exit if not attaching
-	jne	.exit
+	cmp	dword [esp+0x08], DLL_ATTACH	;
+	jne	.exit				; exit if not attaching
 
 	call	_GetCurrentProcess@0
 	mov	[_proc], eax
 
-	; insert init process
-	mov	eax, ptc_init
+	mov	eax, ptc_init ; insert patSH3r-init process
 	mov	ecx, _patSH3r_init
 	mov	edx, 0x409821
 	call	_patch_mem
@@ -59,7 +68,17 @@ _DllMain:
 
 	ret
 	
-
+; }}}
+; --- _patSH3r_init {{{
+;
+; initializes everything
+;
+; arguments:
+;	-
+;
+; returns:
+;	-
+;
 _patSH3r_init:
 
 	call	_sh3_init
@@ -72,36 +91,51 @@ _patSH3r_init:
 	call	_popup_error
 	ret
 
-
+; }}}
+; --- _popup_error {{{
+;
+; Pops up a message-box which displays the error-code.
+;
+; arguments:
+;	al	error-code
+;
+; returns:
+;	eax	error-code
+;
 _popup_error:
 
 	and	eax, EFAIL		;
-	push	eax			; mask & push error code
+	push	eax			; mask & push error-code
 	push	err_message
 	push	BUFSZ
 	push	_buf
 	call	_snprintf
-	add	esp, 0x0c		; pop all args but error code
+	add	esp, 12			; pop all args but error-code
 
 	push	0x10 ; MB_ICONERROR
 	push	err_caption
 	push	_buf
 	push	dword 0
 	call	_MessageBoxA@16
-	pop	eax			; restore error code
+	pop	eax			; restore error-code
 
 	ret
 
-
+; }}}
+; --- _patch_mem {{{
+;
+; patches code in memory
+;
+; arguments:
+;	eax	code-buffer
+;	ecx	target address (for jmp/call) [opt]
+;	edx	destination in memory
+;
+; returns:
+;	eax	EOK on success
+;	eax	EMEMW on failure
+;
 _patch_mem:
-
-	; patch memory
-	;
-	; arguments:
-	;	eax	buffer
-	;	ecx	target address (for jmp/call) [opt]
-	;	edx	destination in memory
-	;
 
 	pushf
 	push	edi
@@ -117,13 +151,13 @@ _patch_mem:
 	mov	ecx, eax
 	rep	movsb
 
-	cmp	dword [esp], 0	; if no target address, don't append it
-	je	.write
+	cmp	dword [esp], 0	;
+	je	.write		; if no target address, don't append it
 	push	eax
-	mov	edi, _buf	; find place-holder for pointer
-	mov	ecx, eax
-	mov	al, 0xcc
-	repne	scasb
+	mov	edi, _buf	;
+	mov	ecx, eax	;
+	mov	al, 0xcc	;
+	repne	scasb		; find place-holder for target address
 	dec	edi
 	pop	eax
 
@@ -159,4 +193,5 @@ _patch_mem:
 	mov	eax, EMEMW
 	ret
 
+; }}}
 
