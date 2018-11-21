@@ -25,11 +25,15 @@ extern _patch_mem
 extern _proc		; current process
 extern _buf		; temporary buffer of size BUFSZ
 
-; --- config.asm --------------------------------------------------------------
-extern _config_init
-
 ; --- sh3.asm -----------------------------------------------------------------
 ; functions
 extern _sh3_init	; init function
+extern _fmgr_get_yn	; get yes/no from ini-file
+extern _fmgr_get_int	; get integer from ini-file
+extern _fmgr_get_dbl	; get double from ini-file
+extern _fmgr_get_str	; get string from ini-file
+
 ; variables
 extern _fmgrofs		; offset to filemanager.dll
+extern _maincfg		; offset to main.cfg object
+

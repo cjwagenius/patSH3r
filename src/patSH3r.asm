@@ -18,6 +18,9 @@ err_caption:	db	"patSH3r Error", 0
 err_message:	db	"Failed with error code: %d", 0
 ptc_init:	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_RET
 
+inisec:		db	"PATSH3R", 0
+str_smartpo:	db	"SmartPettyOfficer", 0
+
 
 section .text ; ---------------------------------------------------------------
 
@@ -60,10 +63,6 @@ _DllMain:
 _patSH3r_init:
 
 	call	_sh3_init
-	cmp	al, EOK
-	jne	.failure
-
-	call	_config_init
 	cmp	al, EOK
 	jne	.failure
 
