@@ -38,7 +38,6 @@ _config_init:
 	push	inisec
 	mov	ecx, [_maincfg]
 	call	[fmgr_get_yn]
-	mov	[aaa], eax
 
 	mov	al, EOK
 	ret

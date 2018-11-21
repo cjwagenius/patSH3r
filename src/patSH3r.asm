@@ -8,15 +8,15 @@ extern _GetCurrentProcess@0
 section .bss ; ----------------------------------------------------------------
 
 _proc		resd	1
+_hsie		resb	1	; hsie-patched exe?
 _buf		resb	1024
 
 
 section .data ; ---------------------------------------------------------------
 
-err		dd	0
-err_caption	db	"patSH3r Error", 0
-err_message	db	"Failed with error code: %d", 0
-ptc_init	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_RET
+err_caption:	db	"patSH3r Error", 0
+err_message:	db	"Failed with error code: %d", 0
+ptc_init:	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_RET
 
 
 section .text ; ---------------------------------------------------------------
@@ -39,6 +39,10 @@ _DllMain:
 	call	_patch_mem
 	cmp	al, EOK
 	jne	.failure
+
+	
+	cmp	byte [0x44b65a], 0x90 ; check if this is a hsie-patched exe
+	sete	[_hsie]
 
 	mov	al, EOK
 	jmp	.exit
