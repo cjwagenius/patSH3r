@@ -1,4 +1,4 @@
-; vim : fdm=marker
+; vim: fdm=marker
 
 %include "syms.asm"
 
@@ -85,6 +85,10 @@ _patSH3r_init:
 	cmp	al, EOK
 	jne	.failure
 
+	call	_ptc_version_init
+	cmp	al, EOK
+	jne	.failure
+
 	ret
 
 	.failure:
@@ -143,10 +147,9 @@ _patch_mem:
 	push	ecx
 	cld
 	mov	esi, eax
-	inc	esi		; first byte is string length
+	inc	esi		; first byte is code length
 	mov	edi, _buf
 	mov	al, [eax]
-	inc	al
 	and	eax, 0xff	; from now on, eax will string length + 1
 	mov	ecx, eax
 	rep	movsb
