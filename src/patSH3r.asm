@@ -53,6 +53,23 @@ _DllMain:
 	ret
 	
 
+_patSH3r_init:
+
+	call	_sh3_init
+	cmp	al, EOK
+	jne	.failure
+
+	call	_config_init
+	cmp	al, EOK
+	jne	.failure
+
+	ret
+
+	.failure:
+	call	_popup_error
+	ret
+
+
 _popup_error:
 
 	and	eax, EFAIL		;
@@ -137,21 +154,6 @@ _patch_mem:
 
 	.failure:
 	mov	eax, EMEMW
-	ret
-
-
-_patSH3r_init:
-
-	call	_sh3_init
-	cmp	al, EOK
-	jne	.exit
-
-	call	_config_init
-	cmp	al, EOK
-	jne	.exit
-
-	.exit:
-	call	_popup_error
 	ret
 
 
