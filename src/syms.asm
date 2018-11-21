@@ -12,6 +12,7 @@
 %define	ASM_RET		0xc3
 
 ; --- Win32 -------------------------------------------------------------------
+extern _sprintf
 extern _snprintf
 
 extern _GetLastError@0
@@ -22,6 +23,7 @@ extern _WriteProcessMemory@20
 ; functions
 extern _patch_mem
 ; variables
+extern _hsie		; db, is this a hsie-patched exe?
 extern _proc		; current process
 extern _buf		; temporary buffer of size BUFSZ
 
@@ -37,3 +39,6 @@ extern _fmgr_get_str	; get string from ini-file
 extern _fmgrofs		; offset to filemanager.dll
 extern _maincfg		; offset to main.cfg object
 
+; --- patches.asm -------------------------------------------------------------
+extern _ptc_version_init
+extern _ptc_smartpo_init

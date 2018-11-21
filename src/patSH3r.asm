@@ -18,7 +18,7 @@ err_message:	db	"Failed with error code: %d", 0
 ptc_init:	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_RET
 
 inisec:		db	"PATSH3R", 0
-str_smartpo:	db	"SmarterPettyOfficer", 0
+str_smartpo:	db	"SmarterPettyOfficers", 0
 
 
 section .text ; ---------------------------------------------------------------
@@ -88,6 +88,19 @@ _patSH3r_init:
 	call	_ptc_version_init
 	cmp	al, EOK
 	jne	.failure
+
+	push	dword 0		; _smartpo_init?
+	push	str_smartpo
+	push	inisec
+	mov	ecx, [_maincfg]
+	call	[_fmgr_get_yn]
+	cmp	al, 1
+	jne	.pass_smartpo
+	call	_ptc_smartpo_init
+	cmp	al, EOK
+	jne	.failure
+
+	.pass_smartpo:
 
 	ret
 
