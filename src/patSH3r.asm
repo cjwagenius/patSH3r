@@ -19,6 +19,7 @@ ptc_init:	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_RET
 
 inisec:		db	"PATSH3R", 0
 str_smartpo:	db	"SmarterPettyOfficers", 0
+str_alertwo:	db	"AlertWatchOfficer", 0
 
 
 section .text ; ---------------------------------------------------------------
@@ -101,6 +102,18 @@ _patSH3r_init:
 	jne	.failure
 
 	.pass_smartpo:
+	push	dword 0		; _alertwo_init?
+	push	str_alertwo
+	push	inisec
+	mov	ecx, [_maincfg]
+	call	[_fmgr_get_yn]
+	cmp	al, 1
+	jne	.pass_alertwo
+	call	_ptc_alertwo_init
+	cmp	al, EOK
+	jne	.failure
+
+	.pass_alertwo:
 
 	ret
 

@@ -10,6 +10,7 @@ _fmgrofs	resd	1 ; offset to filemanager.dll
 
 section .data ; ---------------------------------------------------------------
 
+_crewofs	dd	0x005f6238
 fmgrfn:		db	"filemanager.dll", 0
 
 _maincfg		dd	0x00544698 ; handle to main.cfg
@@ -27,6 +28,18 @@ _fmgr_get_int		dd	0x00004590
 _fmgr_get_dbl		dd	0x00005610
 _fmgr_get_str		dd	0x000059b0
 
+; --- sh3_mvcrew
+;
+; moves a crew member from one index to another.
+;
+; arguments:
+;	1	from idx
+;	2	to idx
+;
+; returns:
+;	-
+;
+_sh3_mvcrew		dd	0x00428370
 
 section .text ; ---------------------------------------------------------------
 

@@ -1,4 +1,47 @@
 
+;  Crew array (located at 0x5F6238)                            
+;
+;  The crew array contains information about all the crew. The total length
+; of the array is not yet known. The indexes in the array are also positions
+; in the u-boat and it's compartments.
+;
+;  When moving the crew manually (in game), the information in the source-
+; index gets copied to the destination-index. If it's NOT an officer, the
+; memory at the source index gets cleared (in some sence), otherwise only
+; crew_s.nrComp will be set to a negative value. So the only reliable way to
+; check if the slot is free/empty, is to check if crew_s.nrComp < 0.
+;
+; Indexes:
+; 		0 WO
+;		1 [Nothing ?]
+;		2 CE
+;		3 NO
+;		4 WP
+;		30 Helms 1
+;		31 Helms 2
+;		32 Helms 3
+;
+; Compartments:
+; 					      Officer  		Type
+; 	    Compartment		Index	       Index 	 	 II
+; 	   ----------------------------------------------------------
+; 	    Bridge		 13	 	 0		 4
+;   	    Deck Casing		 17		 -		 -
+; 	    Flak		 20		 -		 1
+; 	    Sonar		 28		 -		 1
+; 	    Radio		 29		 -		 1
+; 	    Diesel Engines	 33		 5		 6
+; 	    Electric Engines	 43		 6		 6
+; 	    Bow Torpedo		 53		 7		10
+; 	    Bow Quarters	 67		 8		13
+; 	    Stern Quarters	 83		 9		 6
+; 	    Stern Torpedo	 99		10		 -
+;	    Repair		107		11		 8
+;
+; Repair len: IXB1, VII = 10 : XXI = 12
+;
+
+
 %define BUFSZ		1024
 
 %define EOK		0x00
@@ -10,6 +53,23 @@
 %define ASM_CALL	0xe8
 %define ASM_JMP		0xe9
 %define	ASM_RET		0xc3
+
+%define CREWQ_WATCH	0x00
+%define CREWQ_MACHI	0x05
+%define CREWQ_TORPE	0x06
+%define CREWQ_REPEA	0x08
+
+%define OFFCR_BRIDG	0x00
+%define OFFCR_ENGIN	0x02
+%define	OFFCR_NAVIG	0x03
+%define OFFCR_WEAPO	0x04
+%define OFFCR_DIESE	0x05
+%define OFFCR_ELECT	0x06
+%define OFFCR_BTORP	0x07
+%define OFFCR_BQUAR	0x08
+%define OFFCR_SQUAR	0x09
+%define	OFFCR_STORP	0x0a
+%define OFFCR_REPEA	0x0b
 
 struc crew 
 	.name		resb	52 ;   -(uses only 50)
@@ -67,6 +127,7 @@ extern _buf		; temporary buffer of size BUFSZ
 ; --- sh3.asm -----------------------------------------------------------------
 ; functions
 extern _sh3_init	; init function
+extern _sh3_mvcrew
 extern _fmgr_get_yn	; get yes/no from ini-file
 extern _fmgr_get_int	; get integer from ini-file
 extern _fmgr_get_dbl	; get double from ini-file
@@ -80,4 +141,5 @@ extern _maincfg		; offset to main.cfg object
 ; --- patches.asm -------------------------------------------------------------
 extern _ptc_version_init
 extern _ptc_smartpo_init
+extern _ptc_alertwo_init
 
