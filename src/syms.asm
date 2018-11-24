@@ -109,37 +109,41 @@ struc crew
 endstruc
 
 ; --- Win32 -------------------------------------------------------------------
+%define DLL_ATTACH	0x01
+
 extern _sprintf
 extern _snprintf
 
+extern _GetCurrentProcess@0
 extern _GetLastError@0
+extern _LoadLibraryA@4
 extern _MessageBoxA@16
 extern _WriteProcessMemory@20
 
 ; --- patSH3r.asm -------------------------------------------------------------
 ; functions
-extern _patch_mem
+;extern _patch_mem
 ; variables
-extern _hsie		; db, is this a hsie-patched exe?
-extern _proc		; current process
-extern _buf		; temporary buffer of size BUFSZ
+;extern _hsie		; db, is this a hsie-patched exe?
+;extern _proc		; current process
+;extern _buf		; temporary buffer of size BUFSZ
 
 ; --- sh3.asm -----------------------------------------------------------------
 ; functions
-extern _sh3_init	; init function
-extern _sh3_mvcrew
-extern _fmgr_get_yn	; get yes/no from ini-file
-extern _fmgr_get_int	; get integer from ini-file
-extern _fmgr_get_dbl	; get double from ini-file
-extern _fmgr_get_str	; get string from ini-file
+;extern _sh3_init	; init function
+;extern _sh3_mvcrew
+;extern _fmgr_get_yn	; get yes/no from ini-file
+;extern _fmgr_get_int	; get integer from ini-file
+;extern _fmgr_get_dbl	; get double from ini-file
+;extern _fmgr_get_str	; get string from ini-file
 
 ; variables
-extern _crewofs		; offset to crew-array pointer
-extern _fmgrofs		; offset to filemanager.dll
-extern _maincfg		; offset to main.cfg object
+;extern _crewofs		; offset to crew-array pointer
+;extern _fmgrofs		; offset to filemanager.dll
+;extern _maincfg		; offset to main.cfg object
 
 ; --- patches.asm -------------------------------------------------------------
-extern _ptc_version_init
-extern _ptc_smartpo_init
-extern _ptc_alertwo_init
+;extern _ptc_version_init
+;extern _ptc_smartpo_init
+;extern _ptc_alertwo_init
 
