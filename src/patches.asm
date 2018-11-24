@@ -65,26 +65,60 @@ _ptc_version_init:
 ;	change engine compartments automatically
 ;
 ; solution:
-;	inserting cmp eax, eax at 0x41DB25 disables the qual-check
+;	remove qual-check
 ;
 section .data
-ptc_smartpo:	db	4, 0x39, 0xc0, ASM_NOOP, ASM_NOOP
+ptc_smartpo_01:	db	4, 0x39, 0xc0, ASM_NOOP, ASM_NOOP
+ptc_smartpo_02: db	4, ASM_NOOP, ASM_NOOP, ASM_NOOP, ASM_NOOP
 
 section .text
 _ptc_smartpo_init:
 
-	mov	eax, ptc_smartpo
+	; patch when moving group of crew between compartments
+	mov	eax, ptc_smartpo_01
 	mov	ecx, 0
 	mov	edx, 0x41DB25
 	call	_patch_mem
+	cmp	al, EOK
+	jne	.failure
 
+	; patch when moving group of crew between compartments
+	mov	eax, ptc_smartpo_02
+	mov	ecx, 0
+	mov	edx, 0x42ac2e
+	call	_patch_mem
+	cmp	al, EOK
+	jne	.failure
+
+	; patch when submerging
+	mov	eax, ptc_smartpo_02
+	mov	ecx, 0
+	mov	edx, 0x4376f0
+	call	_patch_mem
+	cmp	al, EOK
+	jne	.failure
+
+	; patch when surfacing
+	mov	eax, ptc_smartpo_02
+	mov	ecx, 0
+	mov	edx, 0x4377de
+	call	_patch_mem
+	cmp	al, EOK
+	jne	.failure
+
+	mov	eax, EOK
+	ret
+
+	.failure:
 	ret
 
 ; }}}
 ; --- _ptc_alertwo_init {{{
+;
+; grad check surfacing @ 0x004376e0
+; 
+;
 section .data
-alertwo_guiobj		dd	0x006307bc
-alertwo_chscreen	dd	0x0050fef0
 alertwo_rtnaddr		dd	0x0042d097
 ptc_alertwo		db	6, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
 
