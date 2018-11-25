@@ -138,6 +138,7 @@ section .data
 inisec:		db	"PATSH3R", 0
 str_smartpo:	db	"SmarterPettyOfficers", 0
 str_alertwo:	db	"AlertWatchOfficer", 0
+str_repairt:	db	"RepairTimeFactor", 0
 ;
 ; initializes everything
 ;
@@ -182,7 +183,29 @@ _patSH3r_init:
 	jne	.failure
 
 	.pass_alertwo:
-
+	sub	esp, 12		; repairt
+	mov	dword [esp], __float32__(2.0)
+	fld	dword [esp]
+	fstp	qword [esp]
+	push	str_repairt
+	push	inisec
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_dbl]
+	fstp	dword [esp]
+	mov	eax, esp
+	push	0
+	push	4
+	push	eax
+	push	0x51fa6c
+	push	dword [exe_proc]
+	call	_WriteProcessMemory@20
+	add	esp, 4
+	test	eax, eax
+	jnz	.done_repairt
+	mov	eax, EMEMW
+	jmp	.failure
+	
+	.done_repairt:
 	ret
 
 	.failure:
@@ -314,7 +337,7 @@ fmgrdll_fn:	db	"filemanager.dll", 0
 ;
 _sh3_cfg_yn		dd	0x00004730
 _sh3_cfg_int		dd	0x00004590
-_sh3_cfg_dbl		dd	0x00005610
+_sh3_cfg_dbl		dd	0x000046a0
 _sh3_cfg_str		dd	0x000059b0
 
 ; --- _sh3_mvcrew
