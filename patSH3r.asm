@@ -183,29 +183,10 @@ _patSH3r_init:
 	jne	.failure
 
 	.pass_alertwo:
-	sub	esp, 12		; repairt
-	mov	dword [esp], __float32__(2.0)
-	fld	dword [esp]
-	fstp	qword [esp]
-	push	str_repairt
-	push	inisec
-	mov	ecx, [sh3_maincfg]
-	call	[_sh3_cfg_dbl]
-	fstp	dword [esp]
-	mov	eax, esp
-	push	0
-	push	4
-	push	eax
-	push	0x51fa6c
-	push	dword [exe_proc]
-	call	_WriteProcessMemory@20
-	add	esp, 4
-	test	eax, eax
-	jnz	.done_repairt
-	mov	eax, EMEMW
-	jmp	.failure
+	call	_ptc_repairt_init
+	cmp	al, EOK
+	jne	.failure
 	
-	.done_repairt:
 	ret
 
 	.failure:
@@ -567,6 +548,36 @@ alertwo_findwo:
 	add	esp, 10h
 	ret
 
+
+; }}}
+; --- _ptc_repairt_init {{{
+_ptc_repairt_init:
+
+	sub	esp, 12
+	mov	dword [esp], __float32__(2.0)
+	fld	dword [esp]
+	fstp	qword [esp]
+	push	str_repairt
+	push	inisec
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_dbl]
+	fstp	dword [esp]
+	mov	eax, esp
+	push	0
+	push	4
+	push	eax
+	push	0x51fa6c
+	push	dword [exe_proc]
+	call	_WriteProcessMemory@20
+	add	esp, 4
+	test	eax, eax
+	jz	.failure
+	mov	eax, EOK
+	ret
+
+	.failure:
+	mov	eax, EMEMW
+	ret
 
 ; }}}
 ; }}}
