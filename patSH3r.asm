@@ -139,7 +139,6 @@ _DllMain:
 ; --- _patSH3r_init {{{
 section .data
 inisec:		db	"PATSH3R", 0
-str_smartpo:	db	"SmarterPettyOfficers", 0
 str_alertwo:	db	"AlertWatchOfficer", 0
 str_repairt:	db	"RepairTimeFactor", 0
 str_nvision:	db	"NightVisionFactor", 0
@@ -164,18 +163,10 @@ _patSH3r_init:
 	cmp	al, EOK
 	jne	.failure
 
-	push	dword 0		; _smartpo_init?
-	push	str_smartpo
-	push	inisec
-	mov	ecx, [sh3_maincfg]
-	call	[_sh3_cfg_yn]
-	cmp	al, 1
-	jne	.pass_smartpo
 	call	_ptc_smartpo_init
 	cmp	al, EOK
 	jne	.failure
 
-	.pass_smartpo:
 	push	dword 0		; _alertwo_init?
 	push	str_alertwo
 	push	inisec
@@ -450,14 +441,24 @@ _ptc_version_init:
 ;	change engine compartments automatically
 ;
 ; solution:
-;	remove qual-check
+;	remove qual-checks when necessary
 ;
 section .data
-ptc_smartpo_01:	db	4, 0x39, 0xc0, ASM_NOOP, ASM_NOOP
-ptc_smartpo_02: db	4, ASM_NOOP, ASM_NOOP, ASM_NOOP, ASM_NOOP
+ptc_smartpo_cfg:	db	"SmarterPettyOfficers", 0
+ptc_smartpo_01:		db	4, 0x39, 0xc0, ASM_NOOP, ASM_NOOP
+ptc_smartpo_02: 	db	4, ASM_NOOP, ASM_NOOP, ASM_NOOP, ASM_NOOP
 
 section .text
 _ptc_smartpo_init:
+
+	; config-check
+	push	dword 0			; push default 'No'
+	push	ptc_smartpo_cfg
+	push	inisec			; "PATSH3R"
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_yn]
+	cmp	al, 1
+	jne	.exit_ok
 
 	; patch when moving group of crew between compartments
 	mov	eax, ptc_smartpo_01
@@ -491,6 +492,7 @@ _ptc_smartpo_init:
 	cmp	al, EOK
 	jne	.failure
 
+	.exit_ok:
 	mov	eax, EOK
 	ret
 
