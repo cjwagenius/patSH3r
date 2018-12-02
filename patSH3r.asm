@@ -69,6 +69,9 @@ struc crew
 	.notused_e	resb	 1 ;
 endstruc
 
+; Addresses
+%define SH3_SUNDEG	0x00541cf0 ; sun sin-angle to horizon (float)
+
 ; --- Win32 -------------------------------------------------------------------
 %define DLL_ATTACH	0x01
 
@@ -139,6 +142,8 @@ inisec:		db	"PATSH3R", 0
 str_smartpo:	db	"SmarterPettyOfficers", 0
 str_alertwo:	db	"AlertWatchOfficer", 0
 str_repairt:	db	"RepairTimeFactor", 0
+str_nvision:	db	"NightVisionFactor", 0
+
 ;
 ; initializes everything
 ;
@@ -187,6 +192,23 @@ _patSH3r_init:
 	cmp	al, EOK
 	jne	.failure
 	
+	sub	esp, 8		; _nvision_init?
+	mov	dword [esp], 0
+	mov	dword [esp + 4], 0
+	push	str_nvision
+	push	inisec
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_dbl]
+	fldz
+	fcomip	st0, st1
+	fstp	st0
+	jz	.pass_nvision
+	call	_ptc_nvision_init
+	cmp	al, EOK
+	jne	.failure
+
+	.pass_nvision:
+
 	ret
 
 	.failure:
@@ -305,7 +327,9 @@ _patch_mem:
 section .data
 sh3_crews:	dd	0x005f6238		; offset to the crew array
 sh3_maincfg	dd	0x00544698		; handle to main.cfg
+esimact:	dd	0
 fmgrdll:	dd	0
+esimact_fn	db	"EnvSim.act", 0
 fmgrdll_fn:	db	"filemanager.dll", 0
 
 ; Config value functions
@@ -346,6 +370,12 @@ _sh3_init:
 	add	[_sh3_cfg_int], eax
 	add	[_sh3_cfg_dbl], eax
 	add	[_sh3_cfg_str], eax
+
+	push	esimact_fn
+	call	_LoadLibraryA@4
+	cmp	eax, 0
+	je	.failure
+	mov	[esimact], eax
 
 	mov	al, EOK
 	ret
@@ -580,9 +610,72 @@ _ptc_repairt_init:
 	ret
 
 ; }}}
+; --- _ptc_nvision_init {{{
+section .data
+ptc_nvision	db	7, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP, ASM_NOOP
+nvision_offs	dd	0x00003c06 ; offset in EnvSim to patch
+nvision_fact	dd	0
+nvision_lhoz	dd	-0.2588    ; angle below horizon where light disappear
+
+_ptc_nvision_init:
+
+	mov	eax, ptc_nvision
+	mov	ecx, _nvision
+	mov	edx, [esimact]		; base of EnvSim.act
+	add	edx, 0x00003c06		; offset in EnvSim.act
+	call	_patch_mem
+	ret
+
+_nvision:
+
+	fld	dword [SH3_SUNDEG]	; load sun SIN(degree) vs horizon
+	fldz				; load horizon (which is at 0 degrees)
+	fcomip	st0, st1		; if sun above horizon
+	jb	.daylight		;   then goto .daylight
+
+	fld	dword [nvision_lhoz]
+	fcomip	st0, st1		; if sun below light_horizon
+	ja	.night			;   then goto .night
+
+	; The sun is still within the light horizon, so we'll calculate a
+	; smooth transition of the fog-wall between daylight and pitch black.
+	fld	dword [nvision_lhoz]
+	fdivp				; darkness% = sun_angle / light_horizon
+	fld1
+	fsub	dword [nvision_fact] ; (1 - night_vision_factor)
+	fmulp			; (1/fog_factor) = darkness% * (1-nv_factor)
+	fld1
+	fxch
+	fmulp				; invert fog_factor
+	fadd	dword [nvision_fact]
+	fmulp				; multiply with original value
+	jmp	.exit
+
+	.daylight:			; no more calculations necessary
+	fstp	st0			; pop off sun_angle
+	jmp	.exit
+
+	.night:
+	fstp	st0			; pop off sun_angle
+	fld	dword [nvision_fact]    ; push fog_factor on FPU for return
+	fmulp				; multiply with original value
+	jmp		.exit
+
+	.exit:
+	fstp	dword [ecx]
+	fstp	st0
+	ret	8
+
+; }}}
 ; }}}
 
 ; Notes {{{
+;
+; TODO:
+;	- when submerging/surfacing, if radio/sonar spot is empty; move
+;         sonar/radio guy there
+;
+;
 ;  Crew array (located at 0x5F6238)                            
 ;
 ;  The crew array contains information about all the crew. The total length
