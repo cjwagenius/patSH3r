@@ -83,6 +83,7 @@ extern _GetLastError@0
 extern _LoadLibraryA@4
 extern _MessageBoxA@16
 extern _WriteProcessMemory@20
+
 ;}}}
 
 ; --- _DllMain {{{
@@ -139,7 +140,6 @@ _DllMain:
 ; --- _patSH3r_init {{{
 section .data
 inisec:		db	"PATSH3R", 0
-str_repairt:	db	"RepairTimeFactor", 0
 str_nvision:	db	"NightVisionFactor", 0
 
 ;
@@ -175,13 +175,12 @@ _patSH3r_init:
 	cmp	al, EOK
 	jne	.failure
 	
-	sub	esp, 8		; _nvision_init?
+	sub	esp, 4		; _nvision_init?
 	mov	dword [esp], 0
-	mov	dword [esp + 4], 0
 	push	str_nvision
 	push	inisec
 	mov	ecx, [sh3_maincfg]
-	call	[_sh3_cfg_dbl]
+	call	[_sh3_cfg_flt]
 	fldz
 	fcomip	st0, st1
 	fstp	st0
@@ -325,7 +324,7 @@ fmgrdll_fn:	db	"filemanager.dll", 0
 ;
 _sh3_cfg_yn		dd	0x00004730
 _sh3_cfg_int		dd	0x00004590
-_sh3_cfg_dbl		dd	0x000046a0
+_sh3_cfg_flt		dd	0x00004610
 _sh3_cfg_str		dd	0x000059b0
 
 ; --- _sh3_mvcrew
@@ -351,7 +350,7 @@ _sh3_init:
 	mov	[fmgrdll], eax
 	add	[_sh3_cfg_yn], eax
 	add	[_sh3_cfg_int], eax
-	add	[_sh3_cfg_dbl], eax
+	add	[_sh3_cfg_flt], eax
 	add	[_sh3_cfg_str], eax
 
 	push	esimact_fn
@@ -486,7 +485,7 @@ _ptc_smartpo_init:
 
 	.exit_ok:
 	mov	eax, EOK
-	.failure
+	.failure:
 	ret
 
 ; }}}
@@ -584,16 +583,26 @@ alertwo_findwo:
 
 ; }}}
 ; --- _ptc_repairt_init {{{
+section .data
+ptc_repairt_cfg:	db	"RepairTimeFactor", 0
+
+section .text
 _ptc_repairt_init:
 
-	sub	esp, 12
-	mov	dword [esp], __float32__(2.0)
-	fld	dword [esp]
-	fstp	qword [esp]
-	push	str_repairt
+	sub	esp, 4
+	mov	dword [esp], 0		; push default 'off' (0.0)
+	push	ptc_repairt_cfg
 	push	inisec
 	mov	ecx, [sh3_maincfg]
-	call	[_sh3_cfg_dbl]
+	call	[_sh3_cfg_flt]
+	fldz
+	fcomip	st0, st1
+	jnz	.go
+	fstp	st0
+	jmp	.exit_ok
+
+	.go:
+	sub	esp, 4
 	fstp	dword [esp]
 	mov	eax, esp
 	push	0
@@ -605,6 +614,8 @@ _ptc_repairt_init:
 	add	esp, 4
 	test	eax, eax
 	jz	.failure
+
+	.exit_ok:
 	mov	eax, EOK
 	ret
 
