@@ -139,7 +139,6 @@ _DllMain:
 ; --- _patSH3r_init {{{
 section .data
 inisec:		db	"PATSH3R", 0
-str_alertwo:	db	"AlertWatchOfficer", 0
 str_repairt:	db	"RepairTimeFactor", 0
 str_nvision:	db	"NightVisionFactor", 0
 
@@ -167,13 +166,6 @@ _patSH3r_init:
 	cmp	al, EOK
 	jne	.failure
 
-	push	dword 0		; _alertwo_init?
-	push	str_alertwo
-	push	inisec
-	mov	ecx, [sh3_maincfg]
-	call	[_sh3_cfg_yn]
-	cmp	al, 1
-	jne	.pass_alertwo
 	call	_ptc_alertwo_init
 	cmp	al, EOK
 	jne	.failure
@@ -494,19 +486,29 @@ _ptc_smartpo_init:
 
 	.exit_ok:
 	mov	eax, EOK
-	ret
-
-	.failure:
+	.failure
 	ret
 
 ; }}}
 ; --- _ptc_alertwo_init {{{
 section .data
-alertwo_rtnaddr		dd	0x0042d097
+ptc_alertwo_cfg:	db	"AlertWatchOfficer", 0
+ptc_alertwo_rtn		dd	0x0042d097
 ptc_alertwo		db	6, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
 
 _ptc_alertwo_init:
 
+	push	dword 0			; push default 'No'
+	push	ptc_alertwo_cfg
+	push	inisec			; push "PATSH3R"
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_yn]
+	cmp	al, 1
+	je	.go
+	mov	al, EOK
+	ret
+
+	.go:
 	mov	eax, ptc_alertwo
 	mov	ecx, alertwo
 	mov	edx, 0x0042d08f	; address of interception
@@ -530,7 +532,7 @@ alertwo:
 	popad
 	popf
 	mov	dword [esp + 0x0c], 0
-	jmp	[alertwo_rtnaddr]
+	jmp	[ptc_alertwo_rtn]
 	ret
 
 alertwo_findwo:
@@ -579,7 +581,6 @@ alertwo_findwo:
 	.exit:
 	add	esp, 10h
 	ret
-
 
 ; }}}
 ; --- _ptc_repairt_init {{{
