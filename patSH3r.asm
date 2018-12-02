@@ -140,7 +140,6 @@ _DllMain:
 ; --- _patSH3r_init {{{
 section .data
 inisec:		db	"PATSH3R", 0
-str_nvision:	db	"NightVisionFactor", 0
 
 ;
 ; initializes everything
@@ -170,26 +169,13 @@ _patSH3r_init:
 	cmp	al, EOK
 	jne	.failure
 
-	.pass_alertwo:
 	call	_ptc_repairt_init
 	cmp	al, EOK
 	jne	.failure
 	
-	sub	esp, 4		; _nvision_init?
-	mov	dword [esp], 0
-	push	str_nvision
-	push	inisec
-	mov	ecx, [sh3_maincfg]
-	call	[_sh3_cfg_flt]
-	fldz
-	fcomip	st0, st1
-	fstp	st0
-	jz	.pass_nvision
 	call	_ptc_nvision_init
 	cmp	al, EOK
 	jne	.failure
-
-	.pass_nvision:
 
 	ret
 
@@ -625,14 +611,33 @@ _ptc_repairt_init:
 
 ; }}}
 ; --- _ptc_nvision_init {{{
-section .data
-ptc_nvision	db	7, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP, ASM_NOOP
-nvision_offs	dd	0x00003c06 ; offset in EnvSim to patch
-nvision_fact	dd	0
-nvision_lhoz	dd	-0.2588    ; angle below horizon where light disappear
+section .bss
+ptc_nvision_fac:	resd	1
 
+section .data
+ptc_nvision:		db	7, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, \
+				ASM_NOOP, ASM_NOOP
+ptc_nvision_cfg:	db	"NightVisionFactor", 0
+ptc_nvision_lhz:	dd	-0.2588 ; angle below horizon where light
+					; disappear
+section .text
 _ptc_nvision_init:
 
+	; config-check
+	push	dword 0			; push default 'off' (0.0)
+	push	ptc_nvision_cfg
+	push	inisec
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_flt]
+	fldz
+	fcomip	st0, st1
+	jnz	.go
+	fstp	st0
+	mov	eax, EOK
+	ret
+
+	.go:
+	fstp	dword [ptc_nvision_fac]
 	mov	eax, ptc_nvision
 	mov	ecx, _nvision
 	mov	edx, [esimact]		; base of EnvSim.act
@@ -647,21 +652,21 @@ _nvision:
 	fcomip	st0, st1		; if sun above horizon
 	jb	.daylight		;   then goto .daylight
 
-	fld	dword [nvision_lhoz]
+	fld	dword [ptc_nvision_lhz]
 	fcomip	st0, st1		; if sun below light_horizon
 	ja	.night			;   then goto .night
 
 	; The sun is still within the light horizon, so we'll calculate a
 	; smooth transition of the fog-wall between daylight and pitch black.
-	fld	dword [nvision_lhoz]
+	fld	dword [ptc_nvision_lhz]
 	fdivp				; darkness% = sun_angle / light_horizon
 	fld1
-	fsub	dword [nvision_fact] ; (1 - night_vision_factor)
+	fsub	dword [ptc_nvision_fac] ; (1 - night_vision_factor)
 	fmulp			; (1/fog_factor) = darkness% * (1-nv_factor)
 	fld1
 	fxch
 	fmulp				; invert fog_factor
-	fadd	dword [nvision_fact]
+	fadd	dword [ptc_nvision_fac]
 	fmulp				; multiply with original value
 	jmp	.exit
 
@@ -671,7 +676,7 @@ _nvision:
 
 	.night:
 	fstp	st0			; pop off sun_angle
-	fld	dword [nvision_fact]    ; push fog_factor on FPU for return
+	fld	dword [ptc_nvision_fac] ; push fog_factor on FPU for return
 	fmulp				; multiply with original value
 	jmp		.exit
 
