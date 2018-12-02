@@ -7,7 +7,7 @@ patSH3r.act: patSH3r.o
 	ld -shared -o $@ -s $^ $(LDFLAGS)
 
 %.o: %.asm
-	nasm -I src -f win32 -d PATSH3R_REV=$(REVISION) -o $@ $^
+	nasm $(AFLAGS) -I src -f win32 -d PATSH3R_REV=$(REVISION) -o $@ $^
 
 install:
 	copy /y patSH3r.act "$(SH3_FOLDER)"
