@@ -1,4 +1,4 @@
-; vim: fdm=marker
+; vim: fdm=marker ft=nasm
 
 global _DllMain
 
@@ -476,6 +476,17 @@ _ptc_smartpo_init:
 
 ; }}}
 ; --- _ptc_alertwo_init {{{
+;
+; background:
+;	when surfacing, the wo is still in the bunks
+;
+; solution:
+;	check which WO has the least fatigue and move to bridge.
+;
+; note:
+;	if patching a hsie-patched exe, intercept his solution
+;	instead
+;
 section .data
 ptc_alertwo_cfg:	db	"AlertWatchOfficer", 0
 ptc_alertwo_rtn		dd	0x0042d097
@@ -522,6 +533,7 @@ alertwo:
 
 alertwo_findwo:
 
+	; find out which officer that are to be moved to bridge
 	sub	esp, 10h
 	mov	dword [esp + 00h], OFFCR_BQUAR
 	mov	dword [esp + 04h], __float32__(1.0)
