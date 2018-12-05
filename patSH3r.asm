@@ -77,6 +77,7 @@ endstruc
 
 extern _sprintf
 extern _snprintf
+extern _strstr
 
 extern _GetCurrentProcess@0
 extern _GetLastError@0
@@ -137,6 +138,31 @@ _DllMain:
 	ret
 	
 ; }}}
+
+; --- misc {{{
+section .data
+full_circle:		dd	360
+
+section .text
+; string_len
+;
+; arguments:
+;	eax	string
+;
+; returns:
+;	ecx	lenght
+;
+string_len:
+	mov	ecx, -1
+	
+	.next:
+	inc	ecx
+	cmp	byte [eax + ecx], 0
+	jne	.next
+
+	ret
+
+; }}}
 ; --- _patSH3r_init {{{
 section .data
 inisec:		db	"PATSH3R", 0
@@ -174,6 +200,10 @@ _patSH3r_init:
 	jne	.failure
 	
 	call	_ptc_nvision_init
+	cmp	al, EOK
+	jne	.failure
+
+	call	_ptc_absbrig_init
 	cmp	al, EOK
 	jne	.failure
 
@@ -706,6 +736,107 @@ _nvision:
 	ret	8
 
 ; }}}
+; --- _ptc_absbrig_init {{{
+section .data
+ptc_absbrig_cfg		db	"AbsoluteBearings",0
+ptc_absbrig		db	6, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
+ptc_absbrig_str1	db	"%03.0f",0
+ptc_absbrig_str2	db	" (%03.0f)",0
+
+section .text
+_ptc_absbrig_init:
+
+	push	0			; default 'No'
+	push	ptc_absbrig_cfg
+	push	inisec
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_yn]
+	test	eax, eax
+	jnz	.go
+	ret
+
+	.go:
+	mov	eax, ptc_absbrig
+	mov	ecx, _absbrig
+	mov	edx, 0x00513cbf
+	call	_patch_mem
+	ret
+
+_absbrig:
+
+	push	ebp
+	mov	ebp, esp
+	; +8 buffer, +12 fmt, +16 bearing, +24 range
+	sub	esp, 8
+
+	mov	eax, [ebp+12]
+	call	string_len
+	mov	[ebp-4], ecx	; [ebp-4] strlen([eax])
+	push	ptc_absbrig_str1
+	push	eax
+	call	_strstr
+	add	eax, 6
+	mov	[ebp-8], eax	; [ebp-8] = strstr([eax], "%03.0f")
+	add	esp, 4
+
+	; push (double) range on stack
+	sub	esp, 8
+	fld	qword [ebp+24]
+	fstp	qword [esp]
+	test	eax, eax
+	jz	.skip_abs_bearing
+	
+	; make place for new double format
+	mov	esi, [ebp+12]		; fmt
+	mov	ecx, [ebp-4]		; {
+	mov	eax, [ebp-8]		; |
+	sub	eax, esi		; |
+	sub	ecx, eax		; |
+	inc	ecx			; } ecx = how many bytes to move 
+	add	esi, dword [ebp-4]	; move esi to string end
+	lea	edi, [esi+9]		; set edi 9 bytes ahead
+	std				; set reverse direction flag
+	rep movsb
+
+	; insert absolute bearing format string
+	mov	ecx, 9
+	mov	edi, [ebp-8]
+	mov	esi, ptc_absbrig_str2
+	cld
+	rep movsb
+
+	; calculate & push (double) absolute bearing on stack
+	sub	esp, 8
+	mov	eax, [0x00554698]
+	add	eax, 100		; offset to heading
+	fld	dword [eax]
+	fadd	qword [ebp+16]		; heading + bearing
+	mov	eax, dword full_circle
+	fild	dword [eax]		; push 380 on FPU-stack
+	fxch
+	fprem				; (heading + bearing) % 380
+	fstp	qword [esp]
+	fstp	st0
+
+	; push (double) bearing on stack
+	.skip_abs_bearing:
+	sub	esp, 8
+	fld	qword [ebp+16]
+	fstp	qword [esp]
+
+	;push (char*) fmt and (char*) dst on stack
+	mov	eax, [ebp+12]
+	push	eax
+	mov	eax, [ebp+8]
+	push	eax
+
+	call	_sprintf
+	
+	mov	esp, ebp
+	pop	ebp
+	ret
+	
+; }}}
 ; }}}
 
 ; Notes {{{
@@ -714,6 +845,14 @@ _nvision:
 ;	- when submerging/surfacing, if radio/sonar spot is empty; move
 ;         sonar/radio guy there
 ;
+;	[sub(?)] : 0x00554698
+;			: + 48 = hour of day (word)
+;			; + 50 = minute of day (word)
+;			: + 52 = time of day in seconds 
+;			: + 84 = heading (float)
+;			: + 88 = speed (float)
+
+; Sub-depth : SH3Contr + 0x1f308?
 ;
 ;  Crew array (located at 0x5F6238)                            
 ;
