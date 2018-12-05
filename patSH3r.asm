@@ -581,6 +581,9 @@ alertwo_findwo:
 
 ; }}}
 ; --- _ptc_repairt_init {{{
+section .bss
+ptc_repairt_fac:	resd	1
+
 section .data
 ptc_repairt_cfg:	db	"RepairTimeFactor", 0
 
@@ -600,16 +603,21 @@ _ptc_repairt_init:
 	jmp	.exit_ok
 
 	.go:
-	sub	esp, 4
-	fstp	dword [esp]
-	mov	eax, esp
+	fstp	dword [ptc_repairt_fac]
+	sub	esp, 8
+	mov	[esp+4], dword ptc_repairt_fac
+	lea	eax, [esp+4]
+	mov	[esp], eax
+	;mov	eax, ptc_repairt
+	;mov	ecx, ptc_repairt_fac
+	;mov	edx, 0x0041df6e
 	push	0
 	push	4
-	push	eax
-	push	0x51fa6c
+	push	dword [esp+8]
+	push	0x0041df76
 	push	dword [exe_proc]
 	call	_WriteProcessMemory@20
-	add	esp, 4
+	add	esp, 8
 	test	eax, eax
 	jz	.failure
 
