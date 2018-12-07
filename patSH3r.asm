@@ -1,7 +1,5 @@
 ; vim: fdm=marker ft=nasm
 
-global _DllMain
-
 ; Defines & imports {{{
 %define BUFSZ		1024
 
@@ -75,6 +73,8 @@ endstruc
 ; --- Win32 -------------------------------------------------------------------
 %define DLL_ATTACH	0x01
 
+extern _free
+extern _realloc
 extern _sprintf
 extern _snprintf
 extern _strstr
@@ -88,6 +88,8 @@ extern _WriteProcessMemory@20
 ;}}}
 
 ; --- _DllMain {{{
+global _DllMain
+
 section .bss
 exe_proc	resd	1
 _hsie		resb	1	; hsie-patched exe?
@@ -109,7 +111,7 @@ _DllMain:
 
 	xor	eax, eax
 	cmp	dword [esp+0x08], DLL_ATTACH	;
-	jne	.exit				; exit if not attaching
+	jne	.teardown			; teardown if not attaching
 
 	call	_GetCurrentProcess@0
 	mov	[exe_proc], eax
@@ -121,11 +123,28 @@ _DllMain:
 	cmp	al, EOK
 	jne	.failure
 
-	
 	cmp	byte [0x44b65a], 0x90 ; check if this is a hsie-patched exe
 	sete	[_hsie]
 
 	mov	al, EOK
+	jmp	.exit
+
+	.teardown:
+	; basicly freeing allocated memory
+	xor	ecx, ecx
+	.next:
+	cmp	ecx, [mallocs_len]
+	jge	.fmalloc
+	push	dword [mallocs+ecx*4]
+	call	_free
+	add	esp, 4
+	inc	ecx
+	jmp	.next
+	.fmalloc;
+	push	dword [mallocs]
+	call	_free
+	add	esp, 4
+	mov	eax, EOK
 	jmp	.exit
 
 	.failure:
@@ -138,30 +157,63 @@ _DllMain:
 	ret
 	
 ; }}}
-
 ; --- misc {{{
+; --- memory functions {{{
 section .data
-full_circle:		dd	360
+mallocs:		dd	0
+mallocs_mem:		dd	0
+mallocs_len:		dd	0
 
 section .text
-; string_len
-;
-; arguments:
-;	eax	string
-;
-; returns:
-;	ecx	lenght
-;
-string_len:
-	mov	ecx, -1
-	
-	.next:
-	inc	ecx
-	cmp	byte [eax + ecx], 0
-	jne	.next
+malloc: ; {{{ ecx -> eax | T: edx
 
+	push	ecx
+	mov	ecx, [mallocs_len]
+	inc	ecx
+	cmp	ecx, dword [mallocs_mem]
+	jb	.alloc
+
+	; expand mallocs-array
+	sub	esp, 4
+	add	dword [mallocs_mem], 8
+	mov	eax, [mallocs_mem]
+	mov	edx, 4
+	mul	edx
+	mov	dword [esp], eax
+	push	dword [mallocs]
+	call	_realloc
+	add	esp, 8
+	mov	[mallocs], eax
+
+	.alloc:
+	; size already on stack
+	push	dword 0
+	call	_realloc
+	add	esp, 4
+	mov	ecx, dword [mallocs_len]
+	mov	edx, dword [mallocs+ecx*4]
+	mov	[edx], eax
+	inc	dword [mallocs_len]
+
+	pop	ecx
 	ret
 
+; }}}
+free: ; {{{
+
+	mov	eax, [mallocs_len]
+	test	eax, eax
+	jz	.exit
+	mov	eax, [mallocs+eax*4]
+	push	eax
+	call	_free
+	add	esp, 4
+
+	.exit:
+	ret
+
+; }}}
+; }}}
 ; }}}
 ; --- _patSH3r_init {{{
 section .data
@@ -320,7 +372,6 @@ _patch_mem:
 	ret
 
 ; }}}
-
 ; sh3 functions & variables {{{
 section .data
 sh3_crews:	dd	0x005f6238		; offset to the crew array
@@ -738,10 +789,13 @@ _nvision:
 ; }}}
 ; --- _ptc_absbrig_init {{{
 section .data
+absbear_msg		dd	0
+absbear_fmt		db	" (%03.0f)",0
+absbear_fmtsz		equ	$-(absbear_fmt+1)
+absbear_dbl		db	"%03.0f",0
+absbear_dblsz		equ	$-(absbear_dbl+1)
 ptc_absbrig_cfg		db	"AbsoluteBearings",0
 ptc_absbrig		db	6, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
-ptc_absbrig_str1	db	"%03.0f",0
-ptc_absbrig_str2	db	" (%03.0f)",0
 
 section .text
 _ptc_absbrig_init:
@@ -757,76 +811,87 @@ _ptc_absbrig_init:
 
 	.go:
 	mov	eax, ptc_absbrig
-	mov	ecx, _absbrig
+	mov	ecx, _absbear
 	mov	edx, 0x00513cbf
 	call	_patch_mem
 	ret
 
-_absbrig:
+
+_absbear: ; dd buff, dd fmt, qd bearing, qd range
 
 	push	ebp
 	mov	ebp, esp
-	; +8 buffer, +12 fmt, +16 bearing, +24 range
-	sub	esp, 8
+	push	esi
+	push	edi
 
-	mov	eax, [ebp+12]
+	cmp	dword [absbear_msg], 0
+	jne	.init_done
+
+	; originally, the watch officers string is formated
+	; for two doubles (bearing & range). we got to modify
+	; this string to handle absolute bearing too.
+	; we do this by allocating a new string which we'll
+	; insert the %-format in. we'll set it up the first
+	; time this function is run
+
+	sub	esp, 4
+	mov	esi, [ebp+12]
 	call	string_len
-	mov	[ebp-4], ecx	; [ebp-4] strlen([eax])
-	push	ptc_absbrig_str1
-	push	eax
-	call	_strstr
-	add	eax, 6
-	mov	[ebp-8], eax	; [ebp-8] = strstr([eax], "%03.0f")
+	inc	ecx			; len + '\0'
+	mov	[esp], ecx
+	add	ecx, absbear_fmtsz
+	call	malloc
+	mov	[absbear_msg], eax
+	mov	edi, eax
+	call	string_cpy
+	mov	esi, absbear_dbl
+	call	string_find
+	; TODO: handle ecx = -1. this will crash later if "%03.0f" not found
+	sub	[esp], ecx
+	mov	esi, edi
+	add	esi, ecx
+	add	esi, absbear_dblsz
+	;mov	eax, esi
+	mov	edi, esi
+	add	edi, absbear_fmtsz
+	;xor	ecx, ecx
+	call	string_cpy
+	;mov	edi, eax
+	mov	edi, esi
+	mov	esi, absbear_fmt
+	xor	ecx, ecx
+	call	string_cpy
 	add	esp, 4
 
+	.init_done:
 	; push (double) range on stack
 	sub	esp, 8
 	fld	qword [ebp+24]
 	fstp	qword [esp]
-	test	eax, eax
-	jz	.skip_abs_bearing
 	
-	; make place for new double format
-	mov	esi, [ebp+12]		; fmt
-	mov	ecx, [ebp-4]		; {
-	mov	eax, [ebp-8]		; |
-	sub	eax, esi		; |
-	sub	ecx, eax		; |
-	inc	ecx			; } ecx = how many bytes to move 
-	add	esi, dword [ebp-4]	; move esi to string end
-	lea	edi, [esi+9]		; set edi 9 bytes ahead
-	std				; set reverse direction flag
-	rep movsb
-
-	; insert absolute bearing format string
-	mov	ecx, 9
-	mov	edi, [ebp-8]
-	mov	esi, ptc_absbrig_str2
-	cld
-	rep movsb
-
 	; calculate & push (double) absolute bearing on stack
 	sub	esp, 8
 	mov	eax, [0x00554698]
 	add	eax, 100		; offset to heading
 	fld	dword [eax]
 	fadd	qword [ebp+16]		; heading + bearing
-	mov	eax, dword full_circle
-	fild	dword [eax]		; push 380 on FPU-stack
+	push	dword 360
+	fild	dword [esp]		; push 380 on FPU-stack
+	add	esp, 4
 	fxch
 	fprem				; (heading + bearing) % 380
 	fstp	qword [esp]
 	fstp	st0
 
 	; push (double) bearing on stack
-	.skip_abs_bearing:
 	sub	esp, 8
 	fld	qword [ebp+16]
 	fstp	qword [esp]
 
 	;push (char*) fmt and (char*) dst on stack
-	mov	eax, [ebp+12]
-	push	eax
+	push	dword [absbear_msg]
+	;mov	eax, [ebp+12]
+	;push	eax
 	mov	eax, [ebp+8]
 	push	eax
 
@@ -835,7 +900,7 @@ _absbrig:
 	mov	esp, ebp
 	pop	ebp
 	ret
-	
+
 ; }}}
 ; }}}
 
@@ -897,3 +962,6 @@ _absbrig:
 ;
 
 ; }}}
+
+%include "string.asm"
+
