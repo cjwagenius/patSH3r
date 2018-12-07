@@ -118,17 +118,15 @@ _DllMain:
 	;
 	; ---------------------------------------------------------------------
 
-	push	esi
-	push	edi
 	push	ebp
 	mov	ebp, esp
+	push	esi
+	push	edi
 
-	xor	eax, eax
+	mov	eax, EOK			; if thread, at least say 'ok'
 	cmp	dword [ebp+12], DLL_ATTACH
 	jg	.exit			
-	;%ifdef _DEBUG
 	;call	_DebugBreak@0
-	;%endif ; _DEBUG
 	cmp	dword [ebp+12], DLL_DETACH
 	je	.detach
 
@@ -172,10 +170,10 @@ _DllMain:
 	cmp	al, EOK
 	sete	al
 
-	mov	esp, ebp
-	pop	ebp
 	pop	edi
 	pop	esi
+	mov	esp, ebp
+	pop	ebp
 	ret
 	
 ; }}}
