@@ -91,129 +91,76 @@ extern _WriteProcessMemory@20
 global _DllMain
 
 section .bss
-exe_proc	resd	1
-_hsie		resb	1	; hsie-patched exe?
-buf		resb	1024
+exeproc			resd	1	; sh3.exes process id (-1)
+hsie			resb	1	; hsie-patched exe?
+buf			resb	1024	; general working buffer
 
 section .data
-init_patch:	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_RET
+ins_patSH3r_init:	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, \
+				0xcc, ASM_RET
 
 section .text
-;
-; patches sh3.exe to call _patSH3r_init later
-;
-; arguments:
-;	[esp+4]		hinstance
-;	[esp+8]		reason (DLL_ATTACH | DLL_DETACH)
-;	[esp+12]	reserved
-;
 _DllMain:
+	; patches sh3.exe to call patSH3r_init later if attaching
+	; tearsdown and frees allocated memory on detach
+	;
+	; arguments:
+	;	[esp+4]		hinstance
+	;	[esp+8]		reason (DLL_ATTACH | DLL_DETACH)
+	;	[esp+12]	reserved
+	;
+	; returns:
+	;	1	on success
+	;	0	on failure
+	;
+	; ---------------------------------------------------------------------
 
 	xor	eax, eax
 	cmp	dword [esp+0x08], DLL_ATTACH	;
 	jne	.teardown			; teardown if not attaching
 
-	call	_GetCurrentProcess@0
-	mov	[exe_proc], eax
+	call	_GetCurrentProcess@0		;
+	mov	[exeproc], eax			; used by WriteProcessMemory
 
-	mov	eax, init_patch ; insert patSH3r-init process
-	mov	ecx, _patSH3r_init
-	mov	edx, 0x409821
-	call	_patch_mem
+	mov	eax, ins_patSH3r_init		;
+	mov	ecx, patSH3r_init		;
+	mov	edx, 0x409821			; patch patSH3rs init-function
+	call	_patch_mem			; to run later while loading
 	cmp	al, EOK
 	jne	.failure
 
-	cmp	byte [0x44b65a], 0x90 ; check if this is a hsie-patched exe
-	sete	[_hsie]
+	cmp	byte [0x44b65a], 0x90 		;
+	sete	[hsie]				; is this a hsie-patched exe?
 
-	mov	al, EOK
-	jmp	.exit
+	mov	al, EOK				;
+	jmp	.exit				; first setup done
 
-	.teardown:
-	; basicly freeing allocated memory
+	.teardown: ; ----------------------------------------------------------
 	xor	ecx, ecx
-	.next:
-	cmp	ecx, [mallocs_len]
-	jge	.fmalloc
-	push	dword [mallocs+ecx*4]
-	call	_free
-	add	esp, 4
-	inc	ecx
-	jmp	.next
-	.fmalloc:
-	push	dword [mallocs]
-	call	_free
-	add	esp, 4
+	.next_ptr:
+	cmp	ecx, [mallocs_len]		;
+	jge	.fmallocs			;
+	push	dword [mallocs+ecx*4]		;
+	call	_free				;
+	add	esp, 4				;
+	inc	ecx				;
+	jmp	.next_ptr			; free allocated memory blocks
+	.fmallocs:
+	push	dword [mallocs]			;
+	call	_free				;
+	add	esp, 4				; free memory pointer-array
 	mov	eax, EOK
 	jmp	.exit
 
-	.failure:
+	.failure: ; -----------------------------------------------------------
 	call	_popup_error
 
-	.exit:
+	.exit: ; --------------------------------------------------------------
 	cmp	al, EOK
 	sete	al
 
 	ret
 	
-; }}}
-; --- misc {{{
-; --- memory functions {{{
-section .data
-mallocs:		dd	0
-mallocs_mem:		dd	0
-mallocs_len:		dd	0
-
-section .text
-malloc: ; {{{ ecx -> eax | T: edx
-
-	push	ecx
-	mov	ecx, [mallocs_len]
-	inc	ecx
-	cmp	ecx, dword [mallocs_mem]
-	jb	.alloc
-
-	; expand mallocs-array
-	sub	esp, 4
-	add	dword [mallocs_mem], 8
-	mov	eax, [mallocs_mem]
-	mov	edx, 4
-	mul	edx
-	mov	dword [esp], eax
-	push	dword [mallocs]
-	call	_realloc
-	add	esp, 8
-	mov	[mallocs], eax
-
-	.alloc:
-	; size already on stack
-	push	dword 0
-	call	_realloc
-	add	esp, 4
-	mov	ecx, dword [mallocs_len]
-	mov	edx, dword [mallocs+ecx*4]
-	mov	[edx], eax
-	inc	dword [mallocs_len]
-
-	pop	ecx
-	ret
-
-; }}}
-free: ; {{{
-
-	mov	eax, [mallocs_len]
-	test	eax, eax
-	jz	.exit
-	mov	eax, [mallocs+eax*4]
-	push	eax
-	call	_free
-	add	esp, 4
-
-	.exit:
-	ret
-
-; }}}
-; }}}
 ; }}}
 ; --- _patSH3r_init {{{
 section .data
@@ -229,7 +176,7 @@ inisec:		db	"PATSH3R", 0
 ;	-
 ;
 section .text
-_patSH3r_init:
+patSH3r_init:
 
 	call	_sh3_init
 	cmp	al, EOK
@@ -355,7 +302,7 @@ _patch_mem:
 	push	eax
 	push	buf
 	push	edx
-	push	dword [exe_proc]
+	push	dword [exeproc]
 	call	_WriteProcessMemory@20
 	add	esp, 4		; pop ecx
 	pop	esi
@@ -435,6 +382,64 @@ _sh3_init:
 
 
 ; }}}
+; --- misc {{{
+; --- memory functions {{{
+section .data
+mallocs:		dd	0
+mallocs_mem:		dd	0
+mallocs_len:		dd	0
+
+section .text
+malloc: ; {{{ ecx -> eax | T: edx
+
+	push	ecx
+	mov	ecx, [mallocs_len]
+	inc	ecx
+	cmp	ecx, dword [mallocs_mem]
+	jb	.alloc
+
+	; expand mallocs-array
+	sub	esp, 4
+	add	dword [mallocs_mem], 8
+	mov	eax, [mallocs_mem]
+	mov	edx, 4
+	mul	edx
+	mov	dword [esp], eax
+	push	dword [mallocs]
+	call	_realloc
+	add	esp, 8
+	mov	[mallocs], eax
+
+	.alloc:
+	; size already on stack
+	push	dword 0
+	call	_realloc
+	add	esp, 4
+	mov	ecx, dword [mallocs_len]
+	mov	edx, dword [mallocs+ecx*4]
+	mov	[edx], eax
+	inc	dword [mallocs_len]
+
+	pop	ecx
+	ret
+
+; }}}
+free: ; {{{
+
+	mov	eax, [mallocs_len]
+	test	eax, eax
+	jz	.exit
+	mov	eax, [mallocs+eax*4]
+	push	eax
+	call	_free
+	add	esp, 4
+
+	.exit:
+	ret
+
+; }}}
+; }}}
+; }}}
 ; ptc {{{
 ; --- _ptc_version_init {{{
 ;
@@ -457,7 +462,7 @@ _ptc_version_init:
 
 	mov	eax, ptc_version
 	mov	ecx, .sprntf
-	cmp	byte [_hsie], 1
+	cmp	byte [hsie], 1
 	je	.hsie
 	mov	edx, 0x44b657
 	jmp	.exit
@@ -696,7 +701,7 @@ _ptc_repairt_init:
 	push	4
 	push	dword [esp+8]
 	push	0x0041df76
-	push	dword [exe_proc]
+	push	dword [exeproc]
 	call	_WriteProcessMemory@20
 	add	esp, 8
 	test	eax, eax
