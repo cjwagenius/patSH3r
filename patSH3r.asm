@@ -140,7 +140,7 @@ _DllMain:
 	add	esp, 4
 	inc	ecx
 	jmp	.next
-	.fmalloc;
+	.fmalloc:
 	push	dword [mallocs]
 	call	_free
 	add	esp, 4
