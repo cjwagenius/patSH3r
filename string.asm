@@ -17,6 +17,7 @@ string_chr: ; {{{ str: esi, char: eax -> offset: ecx
 	sub	ecx, esi
 	dec	ecx
 	pop	edi
+	ret
 
 ; }}}
 string_cmp: ; {{{ edi, esi, ecx -> eax, ecx

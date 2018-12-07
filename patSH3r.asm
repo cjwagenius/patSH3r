@@ -71,6 +71,7 @@ endstruc
 %define SH3_SUNDEG	0x00541cf0 ; sun sin-angle to horizon (float)
 
 ; --- Win32 -------------------------------------------------------------------
+%define DLL_DETACH	0x00
 %define DLL_ATTACH	0x01
 
 extern _free
@@ -79,10 +80,12 @@ extern _sprintf
 extern _snprintf
 extern _strstr
 
+extern _DebugBreak@0
 extern _GetCurrentProcess@0
 extern _GetLastError@0
 extern _LoadLibraryA@4
 extern _MessageBoxA@16
+extern _RaiseException@16
 extern _WriteProcessMemory@20
 
 ;}}}
@@ -105,9 +108,9 @@ _DllMain:
 	; tearsdown and frees allocated memory on detach
 	;
 	; arguments:
-	;	[esp+4]		hinstance
-	;	[esp+8]		reason (DLL_ATTACH | DLL_DETACH)
-	;	[esp+12]	reserved
+	;	[ebp+ 8]	hinstance
+	;	[ebp+12]	reason (DLL_ATTACH | DLL_DETACH)
+	;	[ebp+16]	reserved
 	;
 	; returns:
 	;	1	on success
@@ -115,17 +118,26 @@ _DllMain:
 	;
 	; ---------------------------------------------------------------------
 
+	push	ebp
+	mov	ebp, esp
+	pushad
+
 	xor	eax, eax
-	cmp	dword [esp+0x08], DLL_ATTACH	;
-	jne	.teardown			; teardown if not attaching
+	cmp	dword [ebp+12], DLL_ATTACH
+	jg	.exit			
+	%ifdef _DEBUG
+	call	_DebugBreak@0
+	%endif ; _DEBUG
+	cmp	dword [ebp+12], DLL_DETACH
+	je	.detach
 
 	call	_GetCurrentProcess@0		;
 	mov	[exeproc], eax			; used by WriteProcessMemory
 
-	mov	eax, ins_patSH3r_init		;
-	mov	ecx, patSH3r_init		;
-	mov	edx, 0x409821			; patch patSH3rs init-function
-	call	_patch_mem			; to run later while loading
+	mov	esi, ins_patSH3r_init		;
+	mov	edi, 0x409821			;
+	mov	eax, patSH3r_init		; patch patSH3rs init-function
+	call	patch_mem			; to run later while loading
 	cmp	al, EOK
 	jne	.failure
 
@@ -135,7 +147,7 @@ _DllMain:
 	mov	al, EOK				;
 	jmp	.exit				; first setup done
 
-	.teardown: ; ----------------------------------------------------------
+	.detach: ; ------------------------------------------------------------
 	xor	ecx, ecx
 	.next_ptr:
 	cmp	ecx, [mallocs_len]		;
@@ -153,16 +165,18 @@ _DllMain:
 	jmp	.exit
 
 	.failure: ; -----------------------------------------------------------
-	call	_popup_error
+	call	popup_error
 
 	.exit: ; --------------------------------------------------------------
 	cmp	al, EOK
 	sete	al
-
+	popad
+	mov	esp, ebp
+	pop	ebp
 	ret
 	
 ; }}}
-; --- _patSH3r_init {{{
+; --- patSH3r_init {{{
 section .data
 inisec:		db	"PATSH3R", 0
 
@@ -209,113 +223,7 @@ patSH3r_init:
 	ret
 
 	.failure:
-	call	_popup_error
-	ret
-
-; }}}
-; --- _popup_error {{{
-section .data
-popup_error_cap:	db	"patSH3r Error", 0
-popup_error_msg:	db	"Failed with error code: %d", 0
-
-section .text
-;
-; Pops up a message-box which displays the error-code.
-;
-; arguments:
-;	al	error-code
-;
-; returns:
-;	eax	error-code
-;
-_popup_error:
-
-	and	eax, EFAIL		;
-	push	eax			; mask & push error-code
-	push	popup_error_msg
-	push	BUFSZ
-	push	buf
-	call	_snprintf
-	add	esp, 12			; pop all args but error-code
-
-	push	0x10 ; MB_ICONERROR
-	push	popup_error_cap
-	push	buf
-	push	dword 0
-	call	_MessageBoxA@16
-	pop	eax			; restore error-code
-
-	ret
-
-; }}}
-; --- _patch_mem {{{
-;
-; patches code in memory
-;
-; arguments:
-;	eax	code-buffer
-;	ecx	target address (for jmp/call) [opt]
-;	edx	destination in memory
-;
-; returns:
-;	eax	EOK on success
-;	eax	EMEMW on failure
-;
-_patch_mem:
-
-	pushf
-	push	edi
-	push	esi
-	push	ecx
-	cld
-	mov	esi, eax
-	inc	esi		; first byte is code length
-	mov	edi, buf
-	mov	al, [eax]
-	and	eax, 0xff	; from now on, eax will string length + 1
-	mov	ecx, eax
-	rep	movsb
-
-	cmp	dword [esp], 0	;
-	je	.write		; if no target address, don't append it
-	push	eax
-	mov	edi, buf	;
-	mov	ecx, eax	;
-	mov	al, 0xcc	;
-	repne	scasb		; find place-holder for target address
-	dec	edi
-	pop	eax
-
-	mov	ecx, 4
-	mov	esi, esp
-	push	eax
-	mov	eax, edi	   ; calculate op-codes before place-holder
-	sub	eax, buf	   ;
-	add	eax, 4		   ; add pointer size
-	sub	dword [esi], edx   ; make address relative to edx
-	sub	dword [esi], eax   ;
-	pop	eax
-	rep	movsb
-
-	.write:
-	push	dword 0
-	push	eax
-	push	buf
-	push	edx
-	push	dword [exeproc]
-	call	_WriteProcessMemory@20
-	add	esp, 4		; pop ecx
-	pop	esi
-	pop	edi
-	popf
-	cmp	eax, 0
-	je 	.failure
-
-	mov	eax, EOK
-	ret
-
-	.failure:
-	mov	eax, EMEMW
+	call	popup_error
 	ret
 
 ; }}}
@@ -383,6 +291,115 @@ _sh3_init:
 
 ; }}}
 ; --- misc {{{
+; --- popup_error {{{
+section .data
+popup_error_cap:	db	"patSH3r Error", 0
+popup_error_msg:	db	"Failed with error code: %d", 0
+
+section .text
+popup_error:
+	; Pops up a message-box which displays the error-code.
+	;
+	; arguments:
+	;	al	error-code
+	;
+	; returns:
+	;	eax	error-code
+	;
+	; ---------------------------------------------------------------------
+
+	and	eax, EFAIL		;
+	push	eax			; mask & push error-code
+	push	popup_error_msg
+	push	BUFSZ
+	push	buf
+	call	_snprintf
+	add	esp, 12			; pop all args but error-code
+
+	push	0x10 ; MB_ICONERROR
+	push	popup_error_cap
+	push	buf
+	push	dword 0
+	call	_MessageBoxA@16
+	pop	eax			; restore error-code
+
+	ret
+
+; }}}
+; --- patch_mem {{{
+patch_mem:
+	;
+	; patches code in memory
+	;
+	; arguments:
+	;	esi	code-buffer
+	;	eax	target address (for jmp/call) [opt]
+	;	edi	destination in memory
+	;
+	; returns:
+	;	eax	EOK on success
+	;	eax	EMEMW on failure
+	;
+	; ---------------------------------------------------------------------
+
+	push	ecx
+	push	ebp
+	mov	ebp, esp
+	sub	esp, 12
+
+	mov	[ebp-12], eax
+	mov	[ebp- 8], esi
+	mov	[ebp- 4], edi
+	xor	ecx, ecx
+	mov	cl, [esi]		;
+	inc	esi			; first byte is code length
+	mov	edi, buf
+	call	string_cpy
+	cmp	dword [ebp-12], 0	;
+	je	.write			; if no target address, write as is
+
+	mov	eax, 0xcc		;
+	mov	esi, buf		;
+	call	string_chr		; find place-holder for target address
+	
+	mov	eax, [ebp-12]
+	sub	eax, ecx
+	sub	eax, 4
+	sub	eax, [ebp-4]
+	mov	[ebp-12], eax
+
+	add	edi, ecx
+	mov	ecx, 4
+	lea	esi, [ebp-12]
+	call	string_cpy
+
+	.write:
+	xor	eax, eax
+	mov	ecx, [ebp-8]
+	mov	al, [ecx]
+	push	dword 0
+	push	eax 
+	push	buf
+	push	dword [ebp-4]
+	push	dword [exeproc]
+	call	_WriteProcessMemory@20
+
+	mov	edi, [ebp-4]
+	mov	esi, [ebp-8]
+	mov	esp, ebp
+	pop	ebp
+	pop	ecx
+	cmp	eax, 0
+	je 	.failure
+
+	mov	eax, EOK
+	ret
+
+	.failure:
+	mov	eax, EMEMW
+	ret
+
+; }}}
 ; --- memory functions {{{
 section .data
 mallocs:		dd	0
@@ -460,18 +477,22 @@ ptc_version:	db	6, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
 section .text
 _ptc_version_init:
 
-	mov	eax, ptc_version
-	mov	ecx, .sprntf
+	push	esi
+	push	edi
+	mov	esi, ptc_version
+	mov	eax, .sprntf
 	cmp	byte [hsie], 1
 	je	.hsie
-	mov	edx, 0x44b657
+	mov	edi, 0x44b657
 	jmp	.exit
 	
 	.hsie:
-	mov	edx, 0x633007
+	mov	edi, 0x633007
 
 	.exit:
-	call	_patch_mem
+	call	patch_mem
+	pop	edi
+	pop	esi
 	ret
 
 	.sprntf:
@@ -514,6 +535,7 @@ ptc_smartpo_02: 	db	4, ASM_NOOP, ASM_NOOP, ASM_NOOP, ASM_NOOP
 section .text
 _ptc_smartpo_init:
 
+	push	ecx
 	; config-check
 	push	dword 0			; push default 'No'
 	push	ptc_smartpo_cfg
@@ -524,40 +546,41 @@ _ptc_smartpo_init:
 	jne	.exit_ok
 
 	; patch when moving group of crew between compartments
-	mov	eax, ptc_smartpo_01
-	mov	ecx, 0
-	mov	edx, 0x41DB25
-	call	_patch_mem
+	mov	esi, ptc_smartpo_01
+	mov	eax, 0
+	mov	edi, 0x41DB25
+	call	patch_mem
 	cmp	al, EOK
 	jne	.failure
 
 	; patch when moving group of crew between compartments
-	mov	eax, ptc_smartpo_02
-	mov	ecx, 0
-	mov	edx, 0x42ac2e
-	call	_patch_mem
+	mov	esi, ptc_smartpo_02
+	mov	eax, 0
+	mov	edi, 0x42ac2e
+	call	patch_mem
 	cmp	al, EOK
 	jne	.failure
 
 	; patch when submerging
-	mov	eax, ptc_smartpo_02
-	mov	ecx, 0
-	mov	edx, 0x4376f0
-	call	_patch_mem
+	mov	esi, ptc_smartpo_02
+	mov	eax, 0
+	mov	edi, 0x4376f0
+	call	patch_mem
 	cmp	al, EOK
 	jne	.failure
 
 	; patch when surfacing
-	mov	eax, ptc_smartpo_02
-	mov	ecx, 0
-	mov	edx, 0x4377de
-	call	_patch_mem
+	mov	esi, ptc_smartpo_02
+	mov	eax, 0
+	mov	edi, 0x4377de
+	call	patch_mem
 	cmp	al, EOK
 	jne	.failure
 
 	.exit_ok:
 	mov	eax, EOK
 	.failure:
+	pop	ecx
 	ret
 
 ; }}}
@@ -580,6 +603,8 @@ ptc_alertwo		db	6, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
 
 _ptc_alertwo_init:
 
+	push	esi
+	push	edi
 	push	dword 0			; push default 'No'
 	push	ptc_alertwo_cfg
 	push	inisec			; push "PATSH3R"
@@ -591,10 +616,12 @@ _ptc_alertwo_init:
 	ret
 
 	.go:
-	mov	eax, ptc_alertwo
-	mov	ecx, alertwo
-	mov	edx, 0x0042d08f	; address of interception
-	call	_patch_mem
+	mov	esi, ptc_alertwo
+	mov	eax, alertwo
+	mov	edi, 0x0042d08f	; address of interception
+	call	patch_mem
+	pop	edi
+	pop	esi
 	ret
 
 alertwo:
@@ -694,9 +721,6 @@ _ptc_repairt_init:
 	mov	[esp+4], dword ptc_repairt_fac
 	lea	eax, [esp+4]
 	mov	[esp], eax
-	;mov	eax, ptc_repairt
-	;mov	ecx, ptc_repairt_fac
-	;mov	edx, 0x0041df6e
 	push	0
 	push	4
 	push	dword [esp+8]
@@ -729,6 +753,8 @@ ptc_nvision_lhz:	dd	-0.2588 ; angle below horizon where light
 section .text
 _ptc_nvision_init:
 
+	push	esi
+	push	edi
 	; config-check
 	push	dword 0			; push default 'off' (0.0)
 	push	ptc_nvision_cfg
@@ -744,11 +770,13 @@ _ptc_nvision_init:
 
 	.go:
 	fstp	dword [ptc_nvision_fac]
-	mov	eax, ptc_nvision
-	mov	ecx, _nvision
-	mov	edx, [esimact]		; base of EnvSim.act
-	add	edx, 0x00003c06		; offset in EnvSim.act
-	call	_patch_mem
+	mov	esi, ptc_nvision
+	mov	eax, _nvision
+	mov	edi, [esimact]		; base of EnvSim.act
+	add	edi, 0x00003c06		; offset in EnvSim.act
+	call	patch_mem
+	pop	edi
+	pop	esi
 	ret
 
 _nvision:
@@ -792,7 +820,7 @@ _nvision:
 	ret	8
 
 ; }}}
-; --- _ptc_absbrig_init {{{
+; --- _ptc_absbear_init {{{
 section .data
 absbear_msg		dd	0
 absbear_fmt		db	" (%03.0f)",0
@@ -815,10 +843,10 @@ _ptc_absbrig_init:
 	ret
 
 	.go:
-	mov	eax, ptc_absbrig
-	mov	ecx, _absbear
-	mov	edx, 0x00513cbf
-	call	_patch_mem
+	mov	esi, ptc_absbrig
+	mov	eax, _absbear
+	mov	edi, 0x00513cbf
+	call	patch_mem
 	ret
 
 
