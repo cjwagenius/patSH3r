@@ -704,6 +704,8 @@ ptc_repairt_cfg:	db	"RepairTimeFactor", 0
 section .text
 _ptc_repairt_init:
 
+	cmp	byte [hsie], 0
+	jne	.exit_ok
 	sub	esp, 4
 	mov	dword [esp], 0		; push default 'off' (0.0)
 	push	ptc_repairt_cfg
@@ -944,13 +946,18 @@ _absbear: ; dd buff, dd fmt, qd bearing, qd range
 ;	- when submerging/surfacing, if radio/sonar spot is empty; move
 ;         sonar/radio guy there
 ;
+;	Patrol report procedure: 0x004b79c0
+;
 ;	[sub(?)] : 0x00554698
-;			: + 48 = hour of day (word)
-;			; + 50 = minute of day (word)
-;			: + 52 = time of day in seconds 
-;			: + 84 = heading (float)
-;			: + 88 = speed (float)
-
+;			: +  48 = hour of day (word)
+;			; +  50 = minute of day (word)
+;			: +  52 = time of day in seconds 
+;			: +  84 = heading (float)
+;			: +  88 = speed (float)
+;			: + 244 = pointer to coordinates
+;				+   8 = Longitud
+;				+  16 = Latitud
+;
 ; Sub-depth : SH3Contr + 0x1f308?
 ;
 ;  Crew array (located at 0x5F6238)                            
