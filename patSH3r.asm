@@ -458,7 +458,7 @@ free: ; {{{
 ; }}}
 ; }}}
 ; }}}
-; ptc {{{
+; --- Patches {{{
 ; --- _ptc_version_init {{{
 ;
 ; background:
@@ -602,6 +602,7 @@ ptc_alertwo_cfg:	db	"AlertWatchOfficer", 0
 ptc_alertwo_rtn		dd	0x0042d097
 ptc_alertwo		db	6, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
 
+section .text
 _ptc_alertwo_init:
 
 	push	esi
