@@ -615,13 +615,15 @@ _ptc_alertwo_init:
 	cmp	al, 1
 	je	.go
 	mov	al, EOK
-	ret
+	jmp	.exit
 
 	.go:
 	mov	esi, ptc_alertwo
 	mov	eax, alertwo
 	mov	edi, 0x0042d08f	; address of interception
 	call	patch_mem
+
+	.exit:
 	pop	edi
 	pop	esi
 	ret
@@ -770,7 +772,7 @@ _ptc_nvision_init:
 	jnz	.go
 	fstp	st0
 	mov	eax, EOK
-	ret
+	jmp	.exit
 
 	.go:
 	fstp	dword [ptc_nvision_fac]
@@ -779,6 +781,8 @@ _ptc_nvision_init:
 	mov	edi, [esimact]		; base of EnvSim.act
 	add	edi, 0x00003c06		; offset in EnvSim.act
 	call	patch_mem
+
+	.exit:
 	pop	edi
 	pop	esi
 	ret
