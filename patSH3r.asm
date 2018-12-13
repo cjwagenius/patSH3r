@@ -197,6 +197,12 @@ patSH3r_init:
 	cmp	al, EOK
 	jne	.failure
 
+	push	inisec
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_sec]
+	test	eax, eax
+	jz	.exit
+
 	call	_ptc_version_init
 	cmp	al, EOK
 	jne	.failure
@@ -221,6 +227,7 @@ patSH3r_init:
 	cmp	al, EOK
 	jne	.failure
 
+	.exit:
 	ret
 
 	.failure:
@@ -245,10 +252,11 @@ fmgrdll_fn:	db	"filemanager.dll", 0
 ;
 ; C++ ini-object @ ecx
 ;
-_sh3_cfg_yn		dd	0x00004730
-_sh3_cfg_int		dd	0x00004590
-_sh3_cfg_flt		dd	0x00004610
-_sh3_cfg_str		dd	0x000059b0
+_sh3_cfg_sec		dd	0x00005760	; Find section
+_sh3_cfg_yn		dd	0x00004730	; Get Yes/No
+_sh3_cfg_int		dd	0x00004590	; Get int
+_sh3_cfg_flt		dd	0x00004610	; Get float
+_sh3_cfg_str		dd	0x000059b0	; Get string
 
 ; --- _sh3_mvcrew
 ;
@@ -271,6 +279,7 @@ _sh3_init:
 	cmp	eax, 0
 	je	.failure
 	mov	[fmgrdll], eax
+	add	[_sh3_cfg_sec], eax
 	add	[_sh3_cfg_yn], eax
 	add	[_sh3_cfg_int], eax
 	add	[_sh3_cfg_flt], eax
