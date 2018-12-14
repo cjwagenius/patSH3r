@@ -844,7 +844,7 @@ absbear_fmt		db	" (%03.0f)",0
 absbear_fmtsz		equ	$-(absbear_fmt+1)
 absbear_dbl		db	"%03.0f",0
 absbear_dblsz		equ	$-(absbear_dbl+1)
-ptc_absbrig_cfg		db	"AbsoluteBearings",0
+ptc_absbrig_cfg		db	"TrueBearings",0
 ptc_absbrig		db	6, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
 
 section .text
