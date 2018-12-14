@@ -839,11 +839,6 @@ _nvision:
 ; }}}
 ; --- _ptc_absbear_init {{{
 section .data
-absbear_msg		dd	0
-absbear_fmt		db	" (%03.0f)",0
-absbear_fmtsz		equ	$-(absbear_fmt+1)
-absbear_dbl		db	"%03.0f",0
-absbear_dblsz		equ	$-(absbear_dbl+1)
 ptc_absbrig_cfg		db	"TrueBearings",0
 ptc_absbrig		db	6, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
 
@@ -867,53 +862,11 @@ _ptc_absbrig_init:
 	ret
 
 
-_absbear: ; dd buff, dd fmt, qd bearing, qd range
+_absbear: ; +8 buff, +12 fmt, +16 bearing, +24 range
 
 	push	ebp
 	mov	ebp, esp
-	push	esi
-	push	edi
 
-	cmp	dword [absbear_msg], 0
-	jne	.init_done
-
-	; originally, the watch officers string is formated
-	; for two doubles (bearing & range). we got to modify
-	; this string to handle absolute bearing too.
-	; we do this by allocating a new string which we'll
-	; insert the %-format in. we'll set it up the first
-	; time this function is run
-
-	sub	esp, 4
-	mov	esi, [ebp+12]
-	call	string_len
-	inc	ecx			; len + '\0'
-	mov	[esp], ecx
-	add	ecx, absbear_fmtsz
-	call	malloc
-	mov	[absbear_msg], eax
-	mov	edi, eax
-	call	string_cpy
-	mov	esi, absbear_dbl
-	call	string_find
-	; TODO: handle ecx = -1. this will crash later if "%03.0f" not found
-	sub	[esp], ecx
-	mov	esi, edi
-	add	esi, ecx
-	add	esi, absbear_dblsz
-	;mov	eax, esi
-	mov	edi, esi
-	add	edi, absbear_fmtsz
-	;xor	ecx, ecx
-	call	string_cpy
-	;mov	edi, eax
-	mov	edi, esi
-	mov	esi, absbear_fmt
-	xor	ecx, ecx
-	call	string_cpy
-	add	esp, 4
-
-	.init_done:
 	; push (double) range on stack
 	sub	esp, 8
 	fld	qword [ebp+24]
@@ -939,9 +892,8 @@ _absbear: ; dd buff, dd fmt, qd bearing, qd range
 	fstp	qword [esp]
 
 	;push (char*) fmt and (char*) dst on stack
-	push	dword [absbear_msg]
-	;mov	eax, [ebp+12]
-	;push	eax
+	mov	eax, [ebp+12]
+	push	eax
 	mov	eax, [ebp+8]
 	push	eax
 
