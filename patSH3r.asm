@@ -13,6 +13,9 @@
 %define ASM_JMP		0xe9
 %define	ASM_RET		0xc3
 
+%define SENSOR_VISUAL	0x01
+%define SENSOR_HYDRO	0x0c
+
 %define CREWQ_WATCH	0x00
 %define CREWQ_MACHI	0x05
 %define CREWQ_TORPE	0x06
@@ -227,6 +230,10 @@ patSH3r_init:
 	cmp	al, EOK
 	jne	.failure
 
+	call	_ptc_trgtrpt_init
+	cmp	al, EOK
+	jne	.failure
+
 	.exit:
 	ret
 
@@ -270,6 +277,31 @@ _sh3_cfg_str		dd	0x000059b0	; Get string
 ;	-
 ;
 _sh3_mvcrew		dd	0x00428370
+
+; --- _sh3_get_closest_ship
+;
+; returns pointer to the closest ship
+;
+; arguments:
+;	int   type
+;	void *ptr
+;
+; returns:
+;	void *ptr
+;
+_sh3_get_closest_ship:	dd	0x00513d20
+
+; --- _sh3_get_message
+;
+; gets message id from [en|de]_menu.txt
+;
+; arguments:
+;	int	message_id
+;
+; returns:
+;	char*	message_string
+;
+_sh3_get_message:	dd	0x004ca800
 
 section .text ; ---------------------------------------------------------------
 _sh3_init:
@@ -904,6 +936,135 @@ _absbear: ; +8 buff, +12 fmt, +16 bearing, +24 range
 	ret
 
 ; }}}
+; --- _ptc_trgtrpt_init {{{
+section .bss
+ptc_trgtrpt_active		resb	1
+ptc_trgtrpt_wo_msg		resd	1
+ptc_trgtrpt_so_msg		resd	1
+
+section .data
+ptc_trgtrpt		db	5, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc
+ptc_trgtrpt_cfg		db	"TargetReporting", 0
+ptc_trgtrpt_cwo		db	"WOTargetReportingMessage", 0
+ptc_trgtrpt_cso		db	"SOTargetReportingMessage", 0
+
+section .text
+_ptc_trgtrpt_init:
+
+	push	0			; default 'No'
+	push	ptc_trgtrpt_cfg
+	push	inisec
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_yn]
+	test	eax, eax
+	jnz	.go
+	ret
+
+	.go:
+	mov	esi, ptc_trgtrpt
+	mov	eax, trgtrpt_get_ship
+	mov	edi, 0x0051441d
+	call	patch_mem
+	cmp	eax, EOK
+	jnz	.exit
+
+	mov	esi, ptc_trgtrpt
+	mov	eax, trgtrpt_get_message
+	mov	edi, 0x00513cb4
+	call	patch_mem
+	cmp	eax, EOK
+	jnz	.exit
+
+	mov	esi, ptc_trgtrpt
+	mov	eax, trgtrpt_get_message
+	mov	edi, 0x00513c36
+	call	patch_mem
+	cmp	eax, EOK
+	jnz	.exit
+
+	push	0
+	push	ptc_trgtrpt_cwo
+	push	inisec
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_int]
+	mov	[ptc_trgtrpt_wo_msg], eax
+
+	push	0
+	push	ptc_trgtrpt_cso
+	push	inisec
+	mov	ecx, [sh3_maincfg]
+	call	[_sh3_cfg_int]
+	mov	[ptc_trgtrpt_so_msg], eax
+
+	mov	eax, EOK
+
+	.exit:
+	ret
+
+trgtrpt_get_ship: ; +8 type, +12 *ptr
+
+	mov	eax, [esp+4]
+	xor	eax, SENSOR_VISUAL
+	test	eax, eax
+	jnz	.try_hydro
+
+	mov	eax, [0x005547e8]
+	test	eax, eax
+	jz	.closest_ship
+	jmp	.exit
+	
+	.try_hydro:
+	mov	eax, [esp+4]
+	xor	eax, SENSOR_HYDRO
+	test	eax, eax
+	jnz	.closest_ship
+	mov	eax, [0x005546c4] ;
+	add	eax, 32
+	mov	eax, [eax]
+	add	eax, 24
+	mov	eax, [eax]
+	cmp	eax, 0
+	jne	.exit
+
+	.closest_ship:
+	jmp	[_sh3_get_closest_ship]
+
+	.exit:
+	ret	8
+
+trgtrpt_get_message: ; +4 msg_num
+
+	; check if this is wo reporting on ship
+	cmp	dword [esp+4], 4616
+	jnz	.sonar ; not wo reporting on ship, try sonar instead?
+	cmp	dword [0x005547e8], 0 ; is a ship targeted?
+	jz	.exit
+	cmp	dword [ptc_trgtrpt_wo_msg], 0
+	jz	.exit
+	mov	eax, dword [ptc_trgtrpt_wo_msg]
+	mov	dword [esp+4], eax
+	jmp	.exit
+
+	; is this sonar reporing on ship
+	.sonar:
+	cmp	dword [esp+4], 4912
+	jnz	.exit
+	mov	eax, [0x005546c4] ;
+	add	eax, 32
+	mov	eax, [eax]
+	add	eax, 24
+	mov	eax, [eax]
+	cmp	eax, 0          ; is a ship targeted?
+	jz	.exit
+	cmp	dword [ptc_trgtrpt_so_msg], 0
+	jz	.exit
+	mov	eax, dword [ptc_trgtrpt_so_msg]
+	mov	dword [esp+4], eax
+
+	.exit:
+	jmp	[_sh3_get_message]
+
+; }}}
 ; }}}
 
 ; Notes {{{
@@ -913,6 +1074,9 @@ _absbear: ; +8 buff, +12 fmt, +16 bearing, +24 range
 ;         sonar/radio guy there
 ;
 ;	Patrol report procedure: 0x004b79c0
+;
+;	0x00554694		: linked list of known ships (i.e. not unknown)?
+;	0x005547e8		: visual targeted ship
 ;
 ;	[sub(?)] : 0x00554698
 ;			: +  48 = hour of day (word)
