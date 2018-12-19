@@ -888,10 +888,20 @@ _ptc_absbrig_init:
 
 	.go:
 	mov	esi, ptc_absbrig
-	mov	eax, _absbear
+	mov	eax, _absbear_wo
 	mov	edi, 0x00513cbf
 	call	patch_mem
+	cmp	eax, EOK
+	jne	.exit
+
+	mov	esi, ptc_absbrig
+	mov	eax, _absbear_so
+	mov	edi, 0x00513c66
+	call	patch_mem
+
+	.exit:
 	ret
+
 
 calc_abs_bearing:
 
@@ -920,7 +930,7 @@ calc_abs_bearing:
 	ret
 
 
-_absbear: ; +8 buff, +12 fmt, +16 bearing, +24 range
+_absbear_wo: ; +8 buff, +12 fmt, +16 bearing, +24 range
 
 	push	ebp
 	mov	ebp, esp
@@ -949,6 +959,29 @@ _absbear: ; +8 buff, +12 fmt, +16 bearing, +24 range
 
 	call	_sprintf
 	
+	mov	esp, ebp
+	pop	ebp
+	ret
+
+_absbear_so: ; [ +8 buf, +12 fmt, +16 type, +20 speed, +24 aspect, +28 bearing, +36 range ]
+
+	push	ebp
+	mov	ebp, esp
+
+	push	dword [ebp+36]		; push range
+	sub	esp, 16
+	fld	qword [ebp+28]
+	fst	qword [esp]
+	call	calc_abs_bearing
+	fstp	qword [esp+ 8]
+	push	dword [ebp+24]
+	push	dword [ebp+20]
+	push	dword [ebp+16]
+	push	dword [ebp+12]
+	push	dword [ebp+ 8]
+
+	call	_sprintf
+
 	mov	esp, ebp
 	pop	ebp
 	ret
