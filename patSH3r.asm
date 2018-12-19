@@ -945,8 +945,8 @@ ptc_trgtrpt_so_msg		resd	1
 section .data
 ptc_trgtrpt		db	5, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc
 ptc_trgtrpt_cfg		db	"TargetReporting", 0
-ptc_trgtrpt_cwo		db	"WOTargetReportingMessage", 0
-ptc_trgtrpt_cso		db	"SOTargetReportingMessage", 0
+ptc_trgtrpt_cwo		db	"TargetReportingMessageWO", 0
+ptc_trgtrpt_cso		db	"TargetReportingMessageSO", 0
 
 section .text
 _ptc_trgtrpt_init:
@@ -1001,7 +1001,28 @@ _ptc_trgtrpt_init:
 	.exit:
 	ret
 
+trgtrpt_get_so_target:
+
+	; returns a pointer to the ship pointed to by the hydrophone
+	; eax. or null if none is targeted.
+	; ---------------------------------------------------------------------
+
+	mov	eax, [0x005546c4]
+	add	eax, 32
+	mov	eax, [eax]
+	add	eax, 24
+	mov	eax, [eax]
+	ret
+
 trgtrpt_get_ship: ; +8 type, +12 *ptr
+
+	; this function intercepts the find_closest_target-function
+	;
+	; if this is WO reporting and a ship is targeted with USO or
+	; periscope, (or SO reporting while targeting a ship with 
+	; the hydrophone). Then return a pointer to that ship, or
+	; else just continue to the find_closest_target-function
+	; ---------------------------------------------------------------------
 
 	mov	eax, [esp+4]
 	xor	eax, SENSOR_VISUAL
@@ -1018,13 +1039,9 @@ trgtrpt_get_ship: ; +8 type, +12 *ptr
 	xor	eax, SENSOR_HYDRO
 	test	eax, eax
 	jnz	.closest_ship
-	mov	eax, [0x005546c4] ;
-	add	eax, 32
-	mov	eax, [eax]
-	add	eax, 24
-	mov	eax, [eax]
-	cmp	eax, 0
-	jne	.exit
+	call	trgtrpt_get_so_target
+	test	eax, eax
+	jz	.exit
 
 	.closest_ship:
 	jmp	[_sh3_get_closest_ship]
@@ -1034,10 +1051,18 @@ trgtrpt_get_ship: ; +8 type, +12 *ptr
 
 trgtrpt_get_message: ; +4 msg_num
 
-	; check if this is wo reporting on ship
+	; this function intercepts the SH3 get_message-function
+	;
+	; if a ship is targeted by WO or SO and they are reporting
+	; a ship, the msg_num gets replaced with the one given in
+	; either TargetReportingMessageWO or TargetReportingMessageSO
+	; before moving ahead to the original get_message-function
+	; ---------------------------------------------------------------------
+
+	; check if this is the watch officer reporting on ship?
 	cmp	dword [esp+4], 4616
-	jnz	.sonar ; not wo reporting on ship, try sonar instead?
-	cmp	dword [0x005547e8], 0 ; is a ship targeted?
+	jnz	.sonar                ; not wo, try sonar instead?
+	cmp	dword [0x005547e8], 0 ; is a ship targeted with USO or peri?
 	jz	.exit
 	cmp	dword [ptc_trgtrpt_wo_msg], 0
 	jz	.exit
@@ -1045,16 +1070,12 @@ trgtrpt_get_message: ; +4 msg_num
 	mov	dword [esp+4], eax
 	jmp	.exit
 
-	; is this sonar reporing on ship
+	; check if this is the sonar guy reporting on ship?
 	.sonar:
 	cmp	dword [esp+4], 4912
 	jnz	.exit
-	mov	eax, [0x005546c4] ;
-	add	eax, 32
-	mov	eax, [eax]
-	add	eax, 24
-	mov	eax, [eax]
-	cmp	eax, 0          ; is a ship targeted?
+	call	trgtrpt_get_so_target ;
+	test	eax, eax              ; is a ship targeted with hydrophone?
 	jz	.exit
 	cmp	dword [ptc_trgtrpt_so_msg], 0
 	jz	.exit
