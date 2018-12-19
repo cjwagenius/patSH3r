@@ -893,6 +893,32 @@ _ptc_absbrig_init:
 	call	patch_mem
 	ret
 
+calc_abs_bearing:
+
+	; converts relative bearings to absolute (true) bearings
+	;
+	; arguments:
+	;	st0	relative bearing
+	;
+	; returns:
+	;	st0	absolute bearing
+	;
+	; ---------------------------------------------------------------------
+	push	eax
+	mov	eax, [0x00554698]       ;
+	add	eax, 100		; offset to subs heading
+	fld	dword [eax]		;
+	faddp				; bearing + heading (st1)
+	push	dword 360		;
+	fild	dword [esp]		; push 380 on FPU-stack
+	add	esp, 4
+	fxch
+	fprem				; (heading + bearing) % 360
+	fxch
+	fstp	st0
+	pop	eax
+	ret
+
 
 _absbear: ; +8 buff, +12 fmt, +16 bearing, +24 range
 
@@ -906,17 +932,9 @@ _absbear: ; +8 buff, +12 fmt, +16 bearing, +24 range
 	
 	; calculate & push (double) absolute bearing on stack
 	sub	esp, 8
-	mov	eax, [0x00554698]
-	add	eax, 100		; offset to heading
-	fld	dword [eax]
-	fadd	qword [ebp+16]		; heading + bearing
-	push	dword 360
-	fild	dword [esp]		; push 380 on FPU-stack
-	add	esp, 4
-	fxch
-	fprem				; (heading + bearing) % 380
+	fld	qword [ebp+16]
+	call	calc_abs_bearing
 	fstp	qword [esp]
-	fstp	st0
 
 	; push (double) bearing on stack
 	sub	esp, 8
