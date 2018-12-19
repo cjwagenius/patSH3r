@@ -1092,7 +1092,7 @@ trgtrpt_get_ship: ; +8 type, +12 *ptr
 	jnz	.closest_ship
 	call	trgtrpt_get_so_target
 	test	eax, eax
-	jz	.exit
+	jnz	.exit
 
 	.closest_ship:
 	jmp	[_sh3_get_closest_ship]
