@@ -1123,8 +1123,12 @@ trgtrpt_get_message: ; +4 msg_num
 
 	; check if this is the sonar guy reporting on ship?
 	.sonar:
-	cmp	dword [esp+4], 4912
-	jnz	.exit
+	cmp	dword [esp+4], 4912 ; nearest sond contact
+	je	.report
+	cmp	dword [esp+4], 4922 ; nearest warship
+	jne	.exit
+
+	.report:
 	call	trgtrpt_get_so_target ;
 	test	eax, eax              ; is a ship targeted with hydrophone?
 	jz	.exit
