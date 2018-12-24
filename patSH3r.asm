@@ -205,34 +205,45 @@ patSH3r_init:
 	test	eax, eax
 	jz	.exit
 
-	call	_ptc_version_init
+	push	ebx
+	mov	ebx, patches
+	.next:
+	call	[ebx]
 	cmp	al, EOK
 	jne	.failure
+	add	ebx, 4
+	cmp	dword [ebx], 0
+	loopne	.next
+	pop	ebx
 
-	call	_ptc_smartpo_init
-	cmp	al, EOK
-	jne	.failure
-
-	call	_ptc_alertwo_init
-	cmp	al, EOK
-	jne	.failure
-
-	call	_ptc_repairt_init
-	cmp	al, EOK
-	jne	.failure
-	
-	call	_ptc_nvision_init
-	cmp	al, EOK
-	jne	.failure
-
-	call	_ptc_absbrig_init
-	cmp	al, EOK
-	jne	.failure
-
-	call	_ptc_trgtrpt_init
-	cmp	al, EOK
-	jne	.failure
-
+;	call	_ptc_version_init
+;	cmp	al, EOK
+;	jne	.failure
+;
+;	call	_ptc_smartpo_init
+;	cmp	al, EOK
+;	jne	.failure
+;
+;	call	_ptc_alertwo_init
+;	cmp	al, EOK
+;	jne	.failure
+;
+;	call	_ptc_repairt_init
+;	cmp	al, EOK
+;	jne	.failure
+;	
+;	call	_ptc_nvision_init
+;	cmp	al, EOK
+;	jne	.failure
+;
+;	call	_ptc_absbrig_init
+;	cmp	al, EOK
+;	jne	.failure
+;
+;	call	_ptc_trgtrpt_init
+;	cmp	al, EOK
+;	jne	.failure
+;
 	.exit:
 	ret
 
@@ -499,6 +510,16 @@ free: ; {{{
 ; }}}
 ; }}}
 ; --- Patches {{{
+section .data
+patches:	dd	_ptc_version_init, \
+			_ptc_smartpo_init, \
+			_ptc_alertwo_init, \
+			_ptc_repairt_init, \
+			_ptc_nvision_init, \
+			_ptc_absbrig_init, \
+			_ptc_trgtrpt_init, \
+			0
+
 ; --- _ptc_version_init {{{
 ;
 ; background:
@@ -861,7 +882,7 @@ _nvision:
 	ret	8
 
 ; }}}
-; --- _ptc_absbear_init {{{
+; --- _ptc_absbrig_init {{{
 section .data
 ptc_absbrig_cfg		db	"TrueBearings",0
 ptc_absbrig		db	6, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
