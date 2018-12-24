@@ -98,8 +98,7 @@ global _DllMain
 
 section .bss
 exeproc			resd	1	; sh3.exes process id (-1)
-hsie			resb	1	; hsie-patched exe?
-buf			resb	1024	; general working buffer
+buf			resb	BUFSZ	; general working buffer
 
 section .data
 ins_patSH3r_init:	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, \
@@ -133,6 +132,9 @@ _DllMain:
 	cmp	dword [ebp+12], DLL_DETACH
 	je	.detach
 
+	cmp	byte [0x44b65a], 0x90 		; is this a hsie-patshed exe?
+	je	.exit				; then do not initialize
+
 	call	_GetCurrentProcess@0		;
 	mov	[exeproc], eax			; used by WriteProcessMemory
 
@@ -142,9 +144,6 @@ _DllMain:
 	call	patch_mem			; to run later while loading
 	cmp	al, EOK
 	jne	.failure
-
-	cmp	byte [0x44b65a], 0x90 		;
-	sete	[hsie]				; is this a hsie-patched exe?
 
 	mov	al, EOK				;
 	jmp	.exit				; first setup done
@@ -523,14 +522,9 @@ _ptc_version_init:
 	push	edi
 	mov	esi, ptc_version
 	mov	eax, .sprntf
-	cmp	byte [hsie], 1
-	je	.hsie
 	mov	edi, 0x44b657
 	jmp	.exit
 	
-	.hsie:
-	mov	edi, 0x633007
-
 	.exit:
 	call	patch_mem
 	pop	edi
@@ -748,8 +742,6 @@ ptc_repairt_cfg:	db	"RepairTimeFactor", 0
 section .text
 _ptc_repairt_init:
 
-	cmp	byte [hsie], 0
-	jne	.exit_ok
 	sub	esp, 4
 	mov	dword [esp], 0		; push default 'off' (0.0)
 	push	ptc_repairt_cfg
