@@ -216,34 +216,6 @@ patSH3r_init:
 	loopne	.next
 	pop	ebx
 
-;	call	_ptc_version_init
-;	cmp	al, EOK
-;	jne	.failure
-;
-;	call	_ptc_smartpo_init
-;	cmp	al, EOK
-;	jne	.failure
-;
-;	call	_ptc_alertwo_init
-;	cmp	al, EOK
-;	jne	.failure
-;
-;	call	_ptc_repairt_init
-;	cmp	al, EOK
-;	jne	.failure
-;	
-;	call	_ptc_nvision_init
-;	cmp	al, EOK
-;	jne	.failure
-;
-;	call	_ptc_absbrig_init
-;	cmp	al, EOK
-;	jne	.failure
-;
-;	call	_ptc_trgtrpt_init
-;	cmp	al, EOK
-;	jne	.failure
-;
 	.exit:
 	ret
 
@@ -1154,6 +1126,7 @@ trgtrpt_get_message: ; +4 msg_num
 	jmp	[_sh3_get_message]
 
 ; }}}
+
 ; }}}
 
 ; Notes {{{
