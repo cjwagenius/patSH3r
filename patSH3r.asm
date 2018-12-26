@@ -1,5 +1,9 @@
 ; vim: fdm=marker ft=nasm
 
+global _sh3_cfg_int
+global _sh3_cfg_str
+global _sh3_maincfg
+
 ; Defines & imports {{{
 %define BUFSZ		1024
 
@@ -200,7 +204,7 @@ patSH3r_init:
 	jne	.failure
 
 	push	inisec
-	mov	ecx, [sh3_maincfg]
+	mov	ecx, [_sh3_maincfg]
 	call	[_sh3_cfg_sec]
 	test	eax, eax
 	jz	.exit
@@ -227,7 +231,7 @@ patSH3r_init:
 ; sh3 functions & variables {{{
 section .data
 sh3_crews:	dd	0x005f6238		; offset to the crew array
-sh3_maincfg	dd	0x00544698		; handle to main.cfg
+_sh3_maincfg	dd	0x00544698		; handle to main.cfg
 esimact:	dd	0
 fmgrdll:	dd	0
 esimact_fn	db	"EnvSim.act", 0
@@ -315,6 +319,11 @@ _sh3_init:
 
 ; }}}
 ; --- misc {{{
+section .data
+ini_plrset:		dd	0x005fed58	; playersettings.cfg
+str_plrsub:		db	"PLAYER_SUBMARINE"
+str_type		db	"ClassName"
+str_name		db	"UnitName"
 ; --- popup_error {{{
 section .data
 popup_error_cap:	db	"patSH3r Error", 0
@@ -569,7 +578,7 @@ _ptc_smartpo_init:
 	push	dword 0			; push default 'No'
 	push	ptc_smartpo_cfg
 	push	inisec			; "PATSH3R"
-	mov	ecx, [sh3_maincfg]
+	mov	ecx, [_sh3_maincfg]
 	call	[_sh3_cfg_yn]
 	cmp	al, 1
 	jne	.exit_ok
@@ -638,7 +647,7 @@ _ptc_alertwo_init:
 	push	dword 0			; push default 'No'
 	push	ptc_alertwo_cfg
 	push	inisec			; push "PATSH3R"
-	mov	ecx, [sh3_maincfg]
+	mov	ecx, [_sh3_maincfg]
 	call	[_sh3_cfg_yn]
 	cmp	al, 1
 	je	.go
@@ -739,7 +748,7 @@ _ptc_repairt_init:
 	mov	dword [esp], 0		; push default 'off' (0.0)
 	push	ptc_repairt_cfg
 	push	inisec
-	mov	ecx, [sh3_maincfg]
+	mov	ecx, [_sh3_maincfg]
 	call	[_sh3_cfg_flt]
 	fldz
 	fcomip	st0, st1
@@ -791,7 +800,7 @@ _ptc_nvision_init:
 	push	dword 0			; push default 'off' (0.0)
 	push	ptc_nvision_cfg
 	push	inisec
-	mov	ecx, [sh3_maincfg]
+	mov	ecx, [_sh3_maincfg]
 	call	[_sh3_cfg_flt]
 	fldz
 	fcomip	st0, st1
@@ -865,7 +874,7 @@ _ptc_absbrig_init:
 	push	0			; default 'No'
 	push	ptc_absbrig_cfg
 	push	inisec
-	mov	ecx, [sh3_maincfg]
+	mov	ecx, [_sh3_maincfg]
 	call	[_sh3_cfg_yn]
 	test	eax, eax
 	jnz	.go
@@ -943,10 +952,11 @@ _absbear_wo: ; +8 buff, +12 fmt, +16 bearing, +24 range
 	push	eax
 
 	call	_sprintf
-	
+
 	mov	esp, ebp
 	pop	ebp
 	ret
+
 
 _absbear_so: ; [ +8 buf, +12 fmt, +16 type, +20 speed, +24 aspect, +28 bearing, +36 range ]
 
@@ -990,7 +1000,7 @@ _ptc_trgtrpt_init:
 	push	0			; default 'No'
 	push	ptc_trgtrpt_cfg
 	push	inisec
-	mov	ecx, [sh3_maincfg]
+	mov	ecx, [_sh3_maincfg]
 	call	[_sh3_cfg_yn]
 	test	eax, eax
 	jnz	.go
@@ -1021,14 +1031,14 @@ _ptc_trgtrpt_init:
 	push	0
 	push	ptc_trgtrpt_cwo
 	push	inisec
-	mov	ecx, [sh3_maincfg]
+	mov	ecx, [_sh3_maincfg]
 	call	[_sh3_cfg_int]
 	mov	[ptc_trgtrpt_wo_msg], eax
 
 	push	0
 	push	ptc_trgtrpt_cso
 	push	inisec
-	mov	ecx, [sh3_maincfg]
+	mov	ecx, [_sh3_maincfg]
 	call	[_sh3_cfg_int]
 	mov	[ptc_trgtrpt_so_msg], eax
 
@@ -1137,6 +1147,7 @@ trgtrpt_get_message: ; +4 msg_num
 ;
 ;	Patrol report procedure: 0x004b79c0
 ;
+;	0x005f5f60		: Captains name?
 ;	0x00554694		: linked list of known ships (i.e. not unknown)?
 ;	0x005547e8		: visual targeted ship
 ;
@@ -1193,6 +1204,21 @@ trgtrpt_get_message: ; +4 msg_num
 ;
 ; Repair len: IXB1, VII = 10 : XXI = 12
 ;
+; Ranks:
+;
+;	00	Seaman
+;	01	Senior Seaman
+;	02	Chief Seaman
+;	03	Warrant Officer
+;	04	Senior Warrant Officer
+;	05	Chief Sr. W. Officer
+;	06	Sub-Lieutenant
+;	
+;	10	Lieutenant Jr.
+;	11	Lieutenant Sr.
+;	12	Lieutenant Commander
+;	13	Commander
+
 
 ; }}}
 
