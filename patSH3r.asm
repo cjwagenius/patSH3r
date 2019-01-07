@@ -105,8 +105,8 @@ exeproc			resd	1	; sh3.exes process id (-1)
 buf			resb	BUFSZ	; general working buffer
 
 section .data
-ins_patSH3r_init:	db	7, ASM_NOOP, ASM_CALL, 0xcc, 0xcc, 0xcc, \
-				0xcc, ASM_RET
+ins_patSH3r_init:	db	7, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, \
+				ASM_NOOP, ASM_NOOP
 
 section .text
 _DllMain:
@@ -143,7 +143,7 @@ _DllMain:
 	mov	[exeproc], eax			; used by WriteProcessMemory
 
 	mov	esi, ins_patSH3r_init		;
-	mov	edi, 0x409821			;
+	mov	edi, 0x405a7b			;
 	mov	eax, patSH3r_init		; patch patSH3rs init-function
 	call	patch_mem			; to run later while loading
 	cmp	al, EOK
@@ -186,7 +186,7 @@ _DllMain:
 ; --- patSH3r_init {{{
 section .data
 inisec:		db	"PATSH3R", 0
-
+init_return	dd	0x00405a82
 ;
 ; initializes everything
 ;
@@ -199,6 +199,7 @@ inisec:		db	"PATSH3R", 0
 section .text
 patSH3r_init:
 
+	pushad
 	call	_sh3_init
 	cmp	al, EOK
 	jne	.failure
@@ -209,7 +210,6 @@ patSH3r_init:
 	test	eax, eax
 	jz	.exit
 
-	push	ebx
 	mov	ebx, patches
 	.next:
 	call	[ebx]
@@ -218,14 +218,16 @@ patSH3r_init:
 	add	ebx, 4
 	cmp	dword [ebx], 0
 	loopne	.next
-	pop	ebx
-
-	.exit:
-	ret
+	jmp	.exit
 
 	.failure:
 	call	popup_error
-	ret
+
+	.exit:
+	popad
+	mov	eax, dword [ebx]
+	push	dword 0x402
+	jmp	[init_return]
 
 ; }}}
 ; sh3 functions & variables {{{
@@ -525,9 +527,6 @@ _ptc_version_init:
 	mov	esi, ptc_version
 	mov	eax, .sprntf
 	mov	edi, 0x44b657
-	jmp	.exit
-	
-	.exit:
 	call	patch_mem
 	pop	edi
 	pop	esi
