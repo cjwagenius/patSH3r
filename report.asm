@@ -1,5 +1,8 @@
 ; vim: ft=nasm fdm=marker fmr={{{,}}}
 
+%include "string.inc"
+%include "time.inc"
+
 struc report
 	.name		resb	48
 	.rank		resd	 1
@@ -9,7 +12,7 @@ struc report
 	.speed		resd	 1
 	.long		resd	 1
 	.lat		resd	 1
-	.date		resb	16
+	.time		resd	 1
 endstruc
 
 extern		_sh3_maincfg
@@ -22,12 +25,16 @@ extern	_WinHttpOpen@20
 extern	_WinHttpOpenRequest@28
 extern	_WinHttpQueryHeaders@24
 extern	_WinHttpSendRequest@28
+extern	_WinHttpSetStatusCallback@16
+
+global _report_send
 
 section .bss
 handles:		resd	3
 post_buf:		istruc report iend
 
 section .data
+
 threesixty:		dd	360.0
 m_radius:		dq	6875493.0	; SH3 earth median radius
 report_plrcfg		dd	0x005fed58	; handle to playersettings.cfg
@@ -39,7 +46,7 @@ report_strClassName	db	"ClassName", 0
 report_strUnitName	db	"UnitName", 0
 str_agent:		dw	__utf16__("patSH3r"), 0
 str_server:		dw	__utf16__("fb.tuxxor.net"), 0
-str_cgi:		dw	__utf16__("/patSH3r_bdu"), 0
+str_cgi:		dw	__utf16__("/cgi-bin/pbdu"), 0
 str_post:		dw	__utf16__("POST"), 0
 
 section .text
@@ -61,7 +68,7 @@ _report_send: ; {{{
 	mov	dword [handles+0], eax
 
 	push	dword 0			; reserved
-	push	443			; https
+	push	80			; http
 	push	str_server
 	push	eax
 	call	_WinHttpConnect@16
@@ -69,7 +76,7 @@ _report_send: ; {{{
 	jz	.exit			; TODO: handle error
 	mov	dword [handles+4], eax
 
-	push	dword 0x00800004	; SECURE | ESCAPE_PERCENT
+	push	dword 0			; 
 	push	dword 0			; WINHTTP_DEFAULT_ACCEPT_TYPES
 	push	dword 0			; WINHTTP_NO_REFERER
 	push	dword 0			; use HTTP/1.1
@@ -81,12 +88,23 @@ _report_send: ; {{{
 	jz	.exit			; TODO: handle error
 	mov	dword [handles+8], eax
 
+	push	eax
+	push	dword 0			; reserved
+	push	dword 0x00020000	; HEADERS_AVAILABLE
+	push	http_async_callback
+	push	eax
+	call	_WinHttpSetStatusCallback@16
+	cmp	eax, dword -1
+	je	.exit			; TODO: handle error
+	pop	eax
+
 	push	handles
-	push	dword 100		; total length
-	push	dword 100		; optional length
+	push	dword 88		; total length
+	push	dword 88		; optional length
 	push	post_buf
 	push	dword 0			; header length
 	push	dword 0			; WINHTTP_NO_ADDITIONAL_HEADERS
+	push	eax
 	call	_WinHttpSendRequest@28
 	; TODO: handle result
 
@@ -97,7 +115,17 @@ _report_send: ; {{{
 	ret
 
 ; }}}
-meters_to_degrees:
+meters_to_degrees: ; {{{
+
+	; convert meters to degrees around earth
+	;
+	; arguments:
+	;	st0	meters
+	;
+	; returns:
+	;	st0	degrees
+	;
+	; ---------------------------------------------------------------------
 
 	fld	qword [m_radius]
 	fldpi
@@ -110,7 +138,8 @@ meters_to_degrees:
 
 	ret
 
-coord_to_longlat:
+; }}}
+coord_to_longlat: ; {{{
 
 	; converts coordinates in meters to longitude and latitude
 	;
@@ -135,6 +164,7 @@ coord_to_longlat:
 
 	ret
 
+; }}}
 http_async_callback: ; {{{
 
 	push	ebp
@@ -171,6 +201,38 @@ http_async_callback: ; {{{
 	ret
 
 ; }}}
+sub_type_string: ; {{{
+
+	push	ecx
+	push	edx
+	push	dword 0x005fd364	; push offset to sub-type array as
+					; local variable
+
+	push	0
+	push	dword 0x00520a14	; "SubmarineType"
+	push	dword 0x00520a0c	; "PLAYER"
+	mov	ecx, [_sh3_maincfg]
+	call	[_sh3_cfg_int]
+	mov	edx, 224
+	mul	edx
+	add	dword [esp], eax	; add type offset
+
+	push	0
+	push	dword 0x005209f8	; "SubmarineVersion"
+	push	dword 0x00520a0c	; "PLAYER"
+	mov	ecx, [_sh3_maincfg]
+	call	[_sh3_cfg_int]
+	mov	edx, 20
+	mul	edx
+	add	eax, dword [esp]	; add version offset
+
+	add	esp, 4
+	pop	edx
+	pop	ecx
+	
+	ret
+
+; }}}
 setup_post_data: ; {{{
 
 	push	ecx
@@ -184,26 +246,23 @@ setup_post_data: ; {{{
 	push	0
 	push	report_strName
 	push	report_strPLAYER
-	mov	ecx, _sh3_maincfg
-	call	_sh3_cfg_str
+	mov	ecx, [_sh3_maincfg]
+	call	[_sh3_cfg_str]
 
 	; --- set rank --------------------------------------------------------
 	push	0
 	push	report_strRank
 	push	report_strPLAYER
-	mov	ecx, _sh3_maincfg
-	call	_sh3_cfg_int
+	mov	ecx, [_sh3_maincfg]
+	call	[_sh3_cfg_int]
 	mov	[post_buf + report.rank], eax
 
 	; --- set submarine type ----------------------------------------------
-	push	8
-	lea	ecx, [post_buf + report.type]
-	push	ecx
-	push	0
-	push	report_strClassName
-	push	report_strPLAYER_SUB
-	mov	ecx, report_plrcfg
-	call	_sh3_cfg_str
+	call	sub_type_string
+	lea	edi, [post_buf + report.type]
+	mov	esi, eax
+	xor	ecx, ecx
+	call	_string_cpy
 
 	; --- set submarine number --------------------------------------------
 	push	8
@@ -212,8 +271,8 @@ setup_post_data: ; {{{
 	push	0
 	push	report_strUnitName
 	push	report_strPLAYER_SUB
-	mov	ecx, report_plrcfg
-	call	_sh3_cfg_str
+	mov	ecx, [report_plrcfg]
+	call	[_sh3_cfg_str]
 
 	; --- set heading and speed -------------------------------------------
 	mov	eax, [0x00554698]
@@ -230,12 +289,10 @@ setup_post_data: ; {{{
 	fstp	dword [post_buf + report.long]
 	fstp	dword [post_buf + report.lat]
 
-	; --- set datetime ----------------------------------------------------
-	mov	esi, [0x00554a88]
-	lea	edi, [post_buf + report.date]
-	add	esi, 0x82c
-	mov	ecx, 16
-	rep movsb
+	; --- set seconds since start -----------------------------------------
+	call	_gametime_current
+	call	_gametime_to_secs
+	mov	dword [post_buf + report.time], eax
 
 	mov	eax, post_buf
 	pop	edi

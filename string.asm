@@ -1,7 +1,13 @@
 ; vim: ft=nasm fdm=marker
 
+global _string_chr
+global _string_cmp
+global _string_cpy
+global _string_find
+global _string_len
+
 section .text
-string_chr: ; {{{ str: esi, char: eax -> offset: ecx
+_string_chr: ; {{{ str: esi, char: eax -> offset: ecx
 	;
 	; Searches the string @ esi for the char in eax
 	; Returns the offset in string where found, or -1 in ecx
@@ -9,7 +15,7 @@ string_chr: ; {{{ str: esi, char: eax -> offset: ecx
 	push	edi
 	test	ecx, ecx
 	jnz	.chr
-	call	string_len
+	call	_string_len
 	.chr:
 	mov	edi, esi
 	repne scasb
@@ -20,12 +26,12 @@ string_chr: ; {{{ str: esi, char: eax -> offset: ecx
 	ret
 
 ; }}}
-string_cmp: ; {{{ edi, esi, ecx -> eax, ecx
+_string_cmp: ; {{{ edi, esi, ecx -> eax, ecx
 	push	esi
 	push	edi
 	test	ecx, ecx
 	jnz	.cmp
-	call	string_len
+	call	_string_len
 	.cmp:
 	rep cmpsb
 	mov	ecx, edi
@@ -41,14 +47,14 @@ string_cmp: ; {{{ edi, esi, ecx -> eax, ecx
 	ret
 
 ; }}}
-string_cpy: ; {{{ edi, esi, ecx -> len: ecx
+_string_cpy: ; {{{ edi, esi, ecx -> len: ecx
 	push	esi
 	push	edi
 	sub	esp, 4
 	mov	[esp], edi
 	test	ecx, ecx
 	jnz	.setup
-	call	string_len
+	call	_string_len
 	.setup:
 	cld
 	cmp	edi, esi
@@ -79,15 +85,15 @@ string_cpy: ; {{{ edi, esi, ecx -> len: ecx
 	pop	esi
 	ret
 ; }}}
-string_find: ; {{{ edi, esi, ecx -> ecx
+_string_find: ; {{{ edi, esi, ecx -> ecx
 	push	esi
 	push	edi
 	push	eax
 	sub	esp, 8
-	call	string_len
+	call	_string_len
 	mov	[esp], ecx
 	mov	esi, edi
-	call	string_len
+	call	_string_len
 	sub	ecx, [esp]
 	.shr:
 	mov	esi, [esp+16]
@@ -103,7 +109,7 @@ string_find: ; {{{ edi, esi, ecx -> ecx
 	mov	ecx, [esp]
 	dec	edi
 	mov	[esp], edi
-	call	string_cmp
+	call	_string_cmp
 	test	eax, eax
 	jz	.found
 	mov	edi, [esp]
@@ -123,7 +129,7 @@ string_find: ; {{{ edi, esi, ecx -> ecx
 	ret
 
 ; }}}
-string_len: ; {{{ esi -> ecx
+_string_len: ; {{{ esi -> ecx
 	push	edi
 	push	eax
 	mov	edi, esi

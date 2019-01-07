@@ -1,5 +1,9 @@
 ; vim: fdm=marker ft=nasm
 
+%include "string.inc"
+
+extern _report_send	; report.asm
+
 global _sh3_cfg_int
 global _sh3_cfg_str
 global _sh3_maincfg
@@ -389,13 +393,13 @@ patch_mem:
 	mov	cl, [esi]		;
 	inc	esi			; first byte is code length
 	mov	edi, buf
-	call	string_cpy
+	call	_string_cpy
 	cmp	dword [ebp-12], 0	;
 	je	.write			; if no target address, write as is
 
 	mov	eax, 0xcc		;
 	mov	esi, buf		;
-	call	string_chr		; find place-holder for target address
+	call	_string_chr		; find place-holder for target address
 	
 	mov	eax, [ebp-12]
 	sub	eax, ecx
@@ -406,7 +410,7 @@ patch_mem:
 	add	edi, ecx
 	mov	ecx, 4
 	lea	esi, [ebp-12]
-	call	string_cpy
+	call	_string_cpy
 
 	.write:
 	xor	eax, eax
@@ -501,6 +505,7 @@ patches:	dd	_ptc_version_init, \
 			_ptc_nvision_init, \
 			_ptc_absbrig_init, \
 			_ptc_trgtrpt_init, \
+			_ptc_report_init, \
 			0
 
 ; --- _ptc_version_init {{{
@@ -1135,7 +1140,39 @@ trgtrpt_get_message: ; +4 msg_num
 	jmp	[_sh3_get_message]
 
 ; }}}
+; --- _ptc_report_init {{{
+section .data
+ptc_report:		db	6, ASM_CALL, 0xcc, 0xcc, 0xcc, 0xcc, ASM_RET
+ptc_report_cfg:		db	"Patsh3rBDU", 0
+ptc_report_rsm		dd	0x004b79c0
 
+section .text
+_ptc_report_init:
+
+	push	0	; default 'No'
+	push	ptc_report_cfg
+	push	inisec
+	mov	ecx, [_sh3_maincfg]
+	call	[_sh3_cfg_yn]
+	test	eax, eax
+	jz	.exit
+
+	mov	esi, ptc_report
+	mov	edi, 0x00514273
+	mov	eax, _report_send
+	call	patch_mem
+
+	.exit:
+	ret
+
+report_inception:
+
+	push	ecx
+	call	_report_send
+	pop	ecx
+	jmp	[ptc_report_rsm]	; resume program flow
+
+; }}}
 ; }}}
 
 ; Notes {{{
@@ -1220,6 +1257,4 @@ trgtrpt_get_message: ; +4 msg_num
 
 
 ; }}}
-
-%include "string.asm"
 
