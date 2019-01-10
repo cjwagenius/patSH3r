@@ -1,21 +1,8 @@
-
+; vim: ft=nasm fdm=marker fmr={{{,}}}
+;
 ; time.asm - time functions for patSH3r
 ;------------------------------------------------------------------------------
 ;
-
-%define EPOCH_1995	788918400
-
-struc tm
-	.sec		resd	1
-	.min		resd	1
-	.hour		resd	1
-	.mday		resd	1
-	.mon		resd	1
-	.year		resd	1
-	.wday		resd	1
-	.yday		resd	1
-	.isdst		resd	1
-endstruc
 
 struc dt
 	.year		resw	1
@@ -28,13 +15,16 @@ struc dt
 	.msec		resw	1
 endstruc
 
-extern _mktime
+extern _SystemTimeToFileTime@8
 
 global _gametime_to_secs
 global _gametime_current
 
-section .text ; ---------------------------------------------------------------
+section .data ; ---------------------------------------------------------------
+time_ft1939_h:	dd	0x017AF037 ; FILETIME high DWORD
+time_ft1939_l:	dd	0xE1DF4000 ; FILETIME low  DWORD
 
+section .text ; ---------------------------------------------------------------
 _gametime_to_secs: ; {{{
 
 	; converts in-game calendar time to seconds since 1939-01-01
@@ -55,56 +45,26 @@ _gametime_to_secs: ; {{{
 	;	passed since 1939-01-01 00:00:00 to in-game time.
 	;
 	; ---------------------------------------------------------------------
-
-	push	ebp
-	mov	ebp, esp
-	sub	esp, 40
-
-	mov	dword [esp + tm.isdst], -1	;
-	mov	dword [esp + tm.year], 95	;
-	mov	dword [esp + tm.mon], 1		;
-	mov	dword [esp + tm.mday], 1	;
-	mov	dword [esp + tm.hour], 0	;
-	mov	dword [esp + tm.min], 0		;
-	mov	dword [esp + tm.sec], 0		;
-	push	esp				;
-	call	_mktime				;
-	add	esp, 4				; set new epoch --
-	mov	[ebp - 4], eax			; (1995-01-01 00:00:00)
-
-	mov	ax, [esi + dt.year]
-	sub	ax, 1939
-	add	ax, 95
-	cwde
-	mov	[esp + tm.year], eax
-	mov	ax, [esi + dt.mon]
-	cwde
-	mov	[esp + tm.mon], eax
-	mov	ax, [esi + dt.mday]
-	cwde
-	mov	[esp + tm.mday], eax
-	mov	ax, [esi + dt.hour]
-	cwde
-	mov	[esp + tm.hour], eax
-	mov	ax, [esi + dt.min]
-	cwde
-	mov	[esp + tm.min], eax
-	mov	ax, [esi + dt.sec]
-	cwde
-	mov	[esp + tm.sec], eax
+	;
 	
+	push	ecx
+	push	edx
+	sub	esp, 8
+
 	push	esp
-	call	_mktime
-	add	esp, 4
-	cmp	eax, 0
-	jl	.exit
+	push	esi
+	call	_SystemTimeToFileTime@8
 
-	sub	eax, dword [ebp - 4]		; secs since new epoch
-
-	mov	esp, ebp
-	pop	ebp
-
-	.exit:
+	mov	eax, [esp]
+	sub	eax, [time_ft1939_l]
+	mov	edx, [esp+4]
+	sbb	edx, [time_ft1939_h]
+	mov	ecx, 10000000
+	div	ecx
+	
+	add	esp, 8
+	pop	edx
+	pop	ecx
 	ret
 
 ; }}}

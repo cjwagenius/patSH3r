@@ -130,6 +130,7 @@ _string_find: ; {{{ edi, esi, ecx -> ecx
 
 ; }}}
 _string_len: ; {{{ esi -> ecx
+
 	push	edi
 	push	eax
 	mov	edi, esi

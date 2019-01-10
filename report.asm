@@ -1,10 +1,12 @@
 ; vim: ft=nasm fdm=marker fmr={{{,}}}
 
-%include "string.inc"
+%include "sh3.inc"
 %include "time.inc"
+%include "string.inc"
 
 struc report
-	.name		resb	48
+	.id		resd	 1
+	.name		resb	52
 	.rank		resd	 1
 	.type		resb	 8 
 	.uboat		resb	 8
@@ -15,9 +17,11 @@ struc report
 	.time		resd	 1
 endstruc
 
-extern		_sh3_maincfg
-extern		_sh3_cfg_int
-extern		_sh3_cfg_str
+extern	_time
+extern  _free
+extern	_sh3_maincfg
+extern	_sh3_cfg_int
+extern	_sh3_cfg_str
 
 extern	_WinHttpCloseHandle@4
 extern	_WinHttpConnect@16
@@ -50,6 +54,17 @@ str_cgi:		dw	__utf16__("/cgi-bin/pbdu"), 0
 str_post:		dw	__utf16__("POST"), 0
 
 section .text
+_career_get_namep:
+
+	push	ecx
+	push	0
+	push	0x51E65C	; "Name"
+	push	0x520A0C	; "PLAYER"
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_STRP]
+	pop	ecx
+	ret
+
 _report_send: ; {{{
 
 	push	ebp
@@ -99,8 +114,8 @@ _report_send: ; {{{
 	pop	eax
 
 	push	handles
-	push	dword 88		; total length
-	push	dword 88		; optional length
+	push	dword 96		; total length
+	push	dword 96		; optional length
 	push	post_buf
 	push	dword 0			; header length
 	push	dword 0			; WINHTTP_NO_ADDITIONAL_HEADERS
@@ -239,9 +254,13 @@ setup_post_data: ; {{{
 	push	esi
 	push	edi
 
+	; --- set  id ---------------------------------------------------------
+	call	_career_get_id
+	mov	[post_buf+report.id], eax
+	
 	; --- set career name -------------------------------------------------
-	push	50
-	lea	ecx, [post_buf + report.name]
+	push	52
+	lea	ecx, [post_buf+report.name]
 	push	ecx
 	push	0
 	push	report_strName
@@ -276,9 +295,9 @@ setup_post_data: ; {{{
 
 	; --- set heading and speed -------------------------------------------
 	mov	eax, [0x00554698]
-	mov	ecx, [eax+84]
+	mov	ecx, [eax+100]
 	mov	[post_buf + report.heading], ecx
-	mov	ecx, [eax+88]
+	mov	ecx, [eax+104]
 	mov	[post_buf + report.speed], ecx
 
 	; --- set position ----------------------------------------------------
@@ -301,4 +320,98 @@ setup_post_data: ; {{{
 
 	ret
 ; }}}
+_crc32b_digest: ; {{{
 
+        ; crc32b digest ecx bytes from esi into eax
+        ;
+        ; arguments:
+        ;       eax     crc context
+        ;       ecx     bytes to consume
+        ;       esi     pointer to bytes
+        ;
+        ; returns:
+        ;       eax     crc context
+        ;
+        ; notes:
+        ;       crc context (eax) must be initiated to -1 (0xffffffff)
+        ;       before consuming the first bytes.
+        ;       To finalize the crc, the context (eax) must be inverted
+        ;       (NOT)
+        ;
+        ; ---------------------------------------------------------------------
+
+	push	ebx
+	push	edx
+	push	ebp
+	mov	ebp, esp
+	sub	esp, 8
+
+	mov	[ebp-8], ecx
+	xor	edx, edx		; counter 'next_byte'
+	.next_byte:
+	xor	al, [esi+edx]
+	mov	ecx, 8			; counter 'next_iter'
+	.next_iter:
+	mov	[ebp-4], eax
+	and	dword [ebp-4], 1
+	xor	ebx, ebx
+	sub	ebx, [ebp-4]
+	and	ebx, 0xedb88320
+	shr	eax, 1
+	xor	eax, ebx
+	loopnz	.next_iter
+	inc	edx
+	cmp	edx, [ebp-8]
+	loopne	.next_byte
+
+	mov	esp, ebp
+	pop	ebp
+	pop	edx
+	pop	ebx
+	ret
+
+; }}}
+_career_get_id: ; {{{
+
+	push	ebp
+	mov	ebp, esp
+	sub	esp, 12
+
+	lea	eax, [SH3_CREWARR+SH3_CREWSZ+64] ; offset 60 of crew-index 1
+	mov	[ebp-4], eax
+	mov	eax, [eax]
+	cmp	eax, 0
+	jne	.exit
+
+	; a career id doesn't exist so we need to create one
+	push	ecx
+	push	esi
+	push	0
+	call	_time
+	mov	[ebp-8], eax
+	mov	eax, -1
+	mov	ecx, 4
+	lea	esi, [ebp-8]
+	call	_crc32b_digest
+
+	mov	[ebp-8], eax
+	call	_career_get_namep
+	call	_string_len
+	mov	[ebp-12], eax
+	mov	esi, eax
+	mov	eax, [ebp-8]
+	call	_crc32b_digest
+	not	eax
+	mov	ecx, [ebp-4]
+	mov	[ecx], eax
+	push	dword [ebp-12]
+
+	pop	esi
+	pop	ecx
+
+	.exit:
+	mov	esp, ebp
+	pop	ebp
+	ret
+
+; }}}

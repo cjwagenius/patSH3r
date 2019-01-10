@@ -1,6 +1,7 @@
 ; vim: fdm=marker ft=nasm
 
 %include "string.inc"
+%include "time.inc"
 
 extern _report_send	; report.asm
 
@@ -314,6 +315,10 @@ _sh3_init:
 	cmp	eax, 0
 	je	.failure
 	mov	[esimact], eax
+
+	;call	_time_init
+	;test	eax, eax
+	;jnz	.failure
 
 	mov	al, EOK
 	ret
@@ -1191,8 +1196,8 @@ report_inception:
 ;			: +  48 = hour of day (word)
 ;			; +  50 = minute of day (word)
 ;			: +  52 = time of day in seconds 
-;			: +  84 = heading (float)
-;			: +  88 = speed (float)
+;			: + 100 = heading (float)
+;			: + 104 = speed (float)
 ;			: + 244 = pointer to coordinates
 ;				+   8 = Longitud
 ;				+  16 = Latitud
