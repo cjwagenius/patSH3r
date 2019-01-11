@@ -51,6 +51,8 @@ section .bss
 exeproc			resd	1	; sh3.exes process id (-1)
 
 section .data
+popup_error_cap:	db	"patSH3r Error", 0
+popup_error_msg:	db	"Failed with error code: %d", 0
 incept_init:		db	7, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, \
 				   ASM_NOOP, ASM_NOOP
 return_init		dd	0x405a82
@@ -176,7 +178,6 @@ init:
 ; }}}
 ; sh3 functions & variables {{{
 section .data
-sh3_crews:	dd	0x005f6238		; offset to the crew array
 _sh3_maincfg	dd	0x00544698		; handle to main.cfg
 esimact:	dd	0
 fmgrdll:	dd	0
@@ -271,12 +272,9 @@ str_plrsub:		db	"PLAYER_SUBMARINE"
 str_type		db	"ClassName"
 str_name		db	"UnitName"
 ; --- popup_error {{{
-section .data
-popup_error_cap:	db	"patSH3r Error", 0
-popup_error_msg:	db	"Failed with error code: %d", 0
-
 section .text
 popup_error:
+
 	; Pops up a message-box which displays the error-code.
 	;
 	; arguments:
@@ -625,7 +623,7 @@ alertwo:
 	.exit:
 	popad
 	popf
-	mov	dword [esp + 0x0c], 0
+	mov	dword [esp+0x0c], 0
 	jmp	[ptc_alertwo_rtn]
 	ret
 
@@ -633,41 +631,41 @@ alertwo_findwo:
 
 	; find out which officer that are to be moved to bridge
 	sub	esp, 10h
-	mov	dword [esp + 00h], OFFCR_BQUAR
-	mov	dword [esp + 04h], __float32__(1.0)
-	mov	dword [esp + 08h], OFFCR_SQUAR
-	mov	dword [esp + 0ch], __float32__(1.0)
+	mov	dword [esp+00h], OFFCR_BQUAR
+	mov	dword [esp+04h], __float32__(1.0)
+	mov	dword [esp+08h], OFFCR_SQUAR
+	mov	dword [esp+0ch], __float32__(1.0)
 	mov	ecx, 0
 
 	.nxt_quart:
 	mov	eax, crew_size
-	mul	dword [esp + ecx * 08h]
-	add	eax, [sh3_crews]
+	mul	dword [esp+ecx*08h]
+	add	eax, SH3_CREWARR
 	mov	ebx, eax
-	cmp	dword [ebx + crew.nrcomp], -1
+	cmp	dword [ebx+crew.nrcomp], -1
 	je	.quar_done
 	cld
 	push	ecx
-	mov	ecx, [ebx + crew.nrqual]
+	mov	ecx, [ebx+crew.nrqual]
 	mov	edi, ebx
 	add	edi, crew.quals
 	mov	eax, CREWQ_WATCH
 	repne scasd
 	pop	ecx
 	jnz	.quar_done
-	mov	edi, [ebx + crew.fatigue]
-	mov	dword [esp + ecx * 8 + 4], edi
+	mov	edi, [ebx+crew.fatigue]
+	mov	dword [esp+ecx*8+4], edi
 
 	.quar_done:
 	inc	ecx
 	cmp	ecx, 1
 	jle	.nxt_quart
 
-	mov	eax, [esp + 00h]
-	mov	ecx, [esp + 04h]
-	cmp	ecx, [esp + 0ch]
-	cmovg	eax, [esp + 08h]
-	cmovg	ecx, [esp + 0ch]
+	mov	eax, [esp+00h]
+	mov	ecx, [esp+04h]
+	cmp	ecx, [esp+0ch]
+	cmovg	eax, [esp+08h]
+	cmovg	ecx, [esp+0ch]
 
 	cmp	ecx, __float32__(1.0)
 	jne	.exit
