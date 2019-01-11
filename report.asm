@@ -23,6 +23,8 @@ extern	_sh3_maincfg
 extern	_sh3_cfg_int
 extern	_sh3_cfg_str
 
+extern	_MultiByteToWideChar@24
+extern	_WideCharToMultiByte@32
 extern	_WinHttpCloseHandle@4
 extern	_WinHttpConnect@16
 extern	_WinHttpOpen@20
@@ -259,14 +261,18 @@ setup_post_data: ; {{{
 	mov	[post_buf+report.id], eax
 	
 	; --- set career name -------------------------------------------------
-	push	52
-	lea	ecx, [post_buf+report.name]
-	push	ecx
+	;push	52
+	;lea	ecx, [post_buf+report.name]
+	;push	ecx
 	push	0
 	push	report_strName
 	push	report_strPLAYER
 	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_str]
+	call	[SH3_CFG_STRP]
+	mov	ecx, 52
+	mov	esi, eax
+	lea	edi, [post_buf+report.name]
+	call	ansi_to_utf
 
 	; --- set rank --------------------------------------------------------
 	push	0
@@ -415,3 +421,45 @@ _career_get_id: ; {{{
 	ret
 
 ; }}}
+ansi_to_utf:
+
+	push	ebp
+	mov	ebp, esp
+	sub	esp, 4
+	push	ecx
+	push	edi
+	push	esi
+
+	push	dword 0
+	push	dword 0
+	push	dword -1
+	push	esi
+	push	dword 0
+	push	1252
+	call	_MultiByteToWideChar@24
+	
+	sub	esp, eax
+	sub	esp, eax
+	mov	[ebp-4], esp
+	push	dword eax
+	push	dword [ebp-4]
+	push	dword -1
+	push	dword [ebp-16]
+	push	dword 0
+	push	1252
+	call	_MultiByteToWideChar@24
+
+	push	dword 0
+	push	dword 0
+	push	dword [ebp-8]
+	push	dword [ebp-12]
+	push	dword -1
+	push	dword [ebp-4]
+	push	0
+	push	dword 65001
+	call	_WideCharToMultiByte@32
+
+	mov	esp, ebp
+	pop	ebp
+	ret
+

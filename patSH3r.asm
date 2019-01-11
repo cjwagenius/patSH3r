@@ -316,10 +316,6 @@ _sh3_init:
 	je	.failure
 	mov	[esimact], eax
 
-	;call	_time_init
-	;test	eax, eax
-	;jnz	.failure
-
 	mov	al, EOK
 	ret
 
