@@ -1,7 +1,9 @@
 ; vim: fdm=marker ft=nasm
 
-%include "string.inc"
+%include "sh3.inc"
+%include "misc.inc"
 %include "time.inc"
+%include "string.inc"
 
 extern _report_send	; report.asm
 
@@ -10,7 +12,6 @@ global _sh3_cfg_str
 global _sh3_maincfg
 
 ; Defines & imports {{{
-%define BUFSZ		1024
 
 %define EOK		0x00
 %define ESH3INIT	0x01
@@ -22,62 +23,6 @@ global _sh3_maincfg
 %define ASM_JMP		0xe9
 %define	ASM_RET		0xc3
 
-%define SENSOR_VISUAL	0x01
-%define SENSOR_HYDRO	0x0c
-
-%define CREWQ_WATCH	0x00
-%define CREWQ_MACHI	0x05
-%define CREWQ_TORPE	0x06
-%define CREWQ_REPEA	0x08
-
-%define OFFCR_BRIDG	0x00
-%define OFFCR_ENGIN	0x02
-%define	OFFCR_NAVIG	0x03
-%define OFFCR_WEAPO	0x04
-%define OFFCR_DIESE	0x05
-%define OFFCR_ELECT	0x06
-%define OFFCR_BTORP	0x07
-%define OFFCR_BQUAR	0x08
-%define OFFCR_SQUAR	0x09
-%define	OFFCR_STORP	0x0a
-%define OFFCR_REPEA	0x0b
-
-struc crew 
-	.name		resb	52 ;   -(uses only 50)
-	.index		resd	 1 ;  0-integer
-	.nrcomp		resd	 1 ;  4-integer
-	.renown		resd	 1 ;  8-float
-	.patrols	resd	 1 ;  c-integer
-	.type		resd	 1 ; 10-integer
-	.grad		resd	 1 ; 14-integer
-	.notused_a	resd	 1 ; 18 ? dword
-	.morale		resd	 1 ; 1c-float
-	.fatigue	resd	 1 ; 20-float
-	.healthsts	resd	 1 ; 24-integer
-	.waswounded	resd	 1 ; 28-integer
-	.experience	resd	 1 ; 2c-float
-	.rank		resd	 1 ; 30-integer
-	.nrqual		resd	 1 ; 34-integer
-	.quals		resd	 3 ; 38-integer
-	.specability	resd	 1 ; 44-integer
-	.medals		resd	 9 ; 48-integer
-	.hitpoints	resd	 1 ; 6c-float
-	.notused_b	resd	 1 ; 70 ? dword
-	.notused_c	resd	 1 ; 74 ? dword
-	.notused_d	resd	 1 ; 78 ? dword
-	.headidx	resd	 1 ; 7c-integer
-	.headtgaidx	resd	 1 ; 80-integer
-	.bodyidx	resd	 1 ; 84-integer
-	.bodytgaidx	resd	 1 ; 88-integer
-	.hashelmet	resd	 1 ; 8c-integer
-	.helmetidx	resd	 1 ; 90-integer
-	.helmettgaidx	resd	 1 ; 94-integer
-	.voiceIdx	resd	 1 ; 98-integer
-	.prom		resb	 1 ; 9c-byte
-	.medal		resb	 9 ; 9d-byte
-	.qual		resb	 9 ; a6-byte
-	.notused_e	resb	 1 ;
-endstruc
 
 ; Addresses
 %define SH3_SUNDEG	0x00541cf0 ; sun sin-angle to horizon (float)
@@ -94,27 +39,25 @@ extern _strstr
 
 extern _DebugBreak@0
 extern _GetCurrentProcess@0
-extern _GetLastError@0
 extern _LoadLibraryA@4
 extern _MessageBoxA@16
-extern _RaiseException@16
 extern _WriteProcessMemory@20
 
 ;}}}
 
-; --- _DllMain {{{
 global _DllMain
 
 section .bss
 exeproc			resd	1	; sh3.exes process id (-1)
-buf			resb	BUFSZ	; general working buffer
 
 section .data
-ins_patSH3r_init:	db	7, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, \
-				ASM_NOOP, ASM_NOOP
-
+incept_init:		db	7, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, \
+				   ASM_NOOP, ASM_NOOP
+return_init		dd	0x405a82
+inisec:			db	"PATSH3R", 0
 section .text
-_DllMain:
+_DllMain: ; {{{
+
 	; patches sh3.exe to call patSH3r_init later if attaching
 	; tearsdown and frees allocated memory on detach
 	;
@@ -141,15 +84,15 @@ _DllMain:
 	cmp	dword [ebp+12], DLL_DETACH
 	je	.detach
 
-	cmp	byte [0x44b65a], 0x90 		; is this a hsie-patshed exe?
-	je	.exit				; then do not initialize
+	cmp	byte [0x44b65a], 0x90 		; if this is a hsie-exe, then
+	je	.exit				; don't initialize
 
 	call	_GetCurrentProcess@0		;
 	mov	[exeproc], eax			; used by WriteProcessMemory
 
-	mov	esi, ins_patSH3r_init		;
+	mov	esi, incept_init		;
 	mov	edi, 0x405a7b			;
-	mov	eax, patSH3r_init		; patch patSH3rs init-function
+	mov	eax, init			; patch patSH3rs init-function
 	call	patch_mem			; to run later while loading
 	cmp	al, EOK
 	jne	.failure
@@ -189,20 +132,16 @@ _DllMain:
 	
 ; }}}
 ; --- patSH3r_init {{{
-section .data
-inisec:		db	"PATSH3R", 0
-init_return	dd	0x00405a82
-;
-; initializes everything
-;
-; arguments:
-;	-
-;
-; returns:
-;	-
-;
-section .text
-patSH3r_init:
+init:
+
+	; initializes everything
+	;
+	; arguments:
+	;	-
+	;
+	; returns:
+	;	-
+	;
 
 	pushad
 	call	_sh3_init
@@ -232,7 +171,7 @@ patSH3r_init:
 	popad
 	mov	eax, dword [ebx]
 	push	dword 0x402
-	jmp	[init_return]
+	jmp	[return_init]
 
 ; }}}
 ; sh3 functions & variables {{{
@@ -352,13 +291,13 @@ popup_error:
 	push	eax			; mask & push error-code
 	push	popup_error_msg
 	push	BUFSZ
-	push	buf
+	push	_buf
 	call	_snprintf
 	add	esp, 12			; pop all args but error-code
 
 	push	0x10 ; MB_ICONERROR
 	push	popup_error_cap
-	push	buf
+	push	_buf
 	push	dword 0
 	call	_MessageBoxA@16
 	pop	eax			; restore error-code
@@ -372,7 +311,7 @@ patch_mem:
 	; patches code in memory
 	;
 	; arguments:
-	;	esi	code-buffer
+	;	esi	code-_buffer
 	;	eax	target address (for jmp/call) [opt]
 	;	edi	destination in memory
 	;
@@ -393,13 +332,13 @@ patch_mem:
 	xor	ecx, ecx
 	mov	cl, [esi]		;
 	inc	esi			; first byte is code length
-	mov	edi, buf
+	mov	edi, _buf
 	call	_string_cpy
 	cmp	dword [ebp-12], 0	;
 	je	.write			; if no target address, write as is
 
 	mov	eax, 0xcc		;
-	mov	esi, buf		;
+	mov	esi, _buf		;
 	call	_string_chr		; find place-holder for target address
 	
 	mov	eax, [ebp-12]
@@ -419,7 +358,7 @@ patch_mem:
 	mov	al, [ecx]
 	push	dword 0
 	push	eax 
-	push	buf
+	push	_buf
 	push	dword [ebp-4]
 	push	dword [exeproc]
 	call	_WriteProcessMemory@20
@@ -929,7 +868,7 @@ calc_abs_bearing:
 	ret
 
 
-_absbear_wo: ; +8 buff, +12 fmt, +16 bearing, +24 range
+_absbear_wo: ; +8 _buff, +12 fmt, +16 bearing, +24 range
 
 	push	ebp
 	mov	ebp, esp
@@ -963,7 +902,7 @@ _absbear_wo: ; +8 buff, +12 fmt, +16 bearing, +24 range
 	ret
 
 
-_absbear_so: ; [ +8 buf, +12 fmt, +16 type, +20 speed, +24 aspect, +28 bearing, +36 range ]
+_absbear_so: ; [ +8 _buf, +12 fmt, +16 type, +20 speed, +24 aspect, +28 bearing, +36 range ]
 
 	push	ebp
 	mov	ebp, esp
