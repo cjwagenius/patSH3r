@@ -87,7 +87,7 @@ _DllMain: ; {{{
 	je	.detach
 
 	cmp	byte [0x44b65a], 0x90 		; if this is a hsie-exe, then
-	je	.exit				; don't initialize
+	je	.exit				; bail
 
 	call	_GetCurrentProcess@0		;
 	mov	[exeproc], eax			; used by WriteProcessMemory
@@ -96,26 +96,26 @@ _DllMain: ; {{{
 	mov	edi, 0x405a7b			;
 	mov	eax, init			; patch patSH3rs init-function
 	call	patch_mem			; to run later while loading
-	cmp	al, EOK
+	cmp	eax, EOK
 	jne	.failure
 
-	mov	al, EOK				;
+	mov	eax, EOK				;
 	jmp	.exit				; first setup done
 
 	.detach: ; ------------------------------------------------------------
-	xor	ecx, ecx
-	.next_ptr:
-	cmp	ecx, [mallocs_len]		;
-	jge	.fmallocs			;
-	push	dword [mallocs+ecx*4]		;
-	call	_free				;
-	add	esp, 4				;
-	inc	ecx				;
-	jmp	.next_ptr			; free allocated memory blocks
-	.fmallocs:
-	push	dword [mallocs]			;
-	call	_free				;
-	add	esp, 4				; free memory pointer-array
+	;xor	ecx, ecx			; XXX: disabled since not used
+	;.next_ptr:				;      currently
+	;cmp	ecx, [mallocs_len]		;
+	;jge	.fmallocs			;
+	;push	dword [mallocs+ecx*4]		;
+	;call	_free				;
+	;add	esp, 4				;
+	;inc	ecx				;
+	;jmp	.next_ptr			; free allocated memory blocks
+	;.fmallocs:
+	;push	dword [mallocs]			;
+	;call	_free				;
+	;add	esp, 4				; free memory pointer-array
 	mov	eax, EOK
 	jmp	.exit
 
@@ -123,8 +123,7 @@ _DllMain: ; {{{
 	call	popup_error
 
 	.exit: ; --------------------------------------------------------------
-	cmp	al, EOK
-	sete	al
+	not	eax
 
 	pop	edi
 	pop	esi
