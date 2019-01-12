@@ -63,8 +63,68 @@ struc crew
 	.notused_e	resb	 1 ;
 endstruc
 
-%define SH3_MAINCFG	0x544698
+%define SH3_MAINCFG 0x544698
 
+; --- SH3_CFG_FLT
+;
+; [ filemanager.dll/GetPrivateProfileFloat ]
+;
+; arguments:
+;	void  *ini
+;	char  *section
+;	char  *value
+;	float  default
+;
+; return:
+;	float
+;
+%define SH3_CFG_FLT 0x51D0A8
+
+; --- SH3_CFG_INT
+;
+; [ filemanager.dll/GetPrivateProfileInt ]
+;
+; arguments:
+;	void *ini
+;	char *section
+;	char *value
+;	int   default
+;
+; return:
+;	int
+;
+%define SH3_CFG_INT 0x51D08C
+
+; --- SH3_CFG_SECEXIST
+;
+; [ filemanager.dll/SectionExists ]
+;
+; arguments:
+;	void *ini
+;	char *section
+;
+; return:
+;	true	if found
+;	false	if not found
+;
+%define SH3_CFG_SECEXIST 0x51D174
+
+; --- SH3_CFG_STR
+;
+; [ filemanager.dll/GetPrivateProfileStringA ]
+;
+; arguments:
+;	void   *ini
+;	char   *section
+;	char   *value
+;	char   *buf
+;	size_t  bufsz
+;
+; return:
+;	?
+%define SH3_CFG_STR 0x51D098
+
+;
 ; --- SH3_CFG_STRP
 ;
 ; [ filemanager.dll/GetPrivateProfileStringPtr ]
@@ -78,5 +138,20 @@ endstruc
 ; return:
 ;	char*
 ;
-%define SH3_CFG_STRP	0x51D094
+%define SH3_CFG_STRP 0x51D094
 
+; --- SH3_CFG_YN
+;
+; [ filemanager.dll/GetPrivateProfileYesNo ]
+;
+; arguments:
+;	void *ini
+;	char *section
+;	char *value
+;	bool default
+;
+; returns:
+;	true	on "Yes"
+;	false	on "No"
+;
+%define SH3_CFG_YN 0x51D134

@@ -7,10 +7,6 @@
 
 extern _report_send	; report.asm
 
-global _sh3_cfg_int
-global _sh3_cfg_str
-global _sh3_maincfg
-
 ; Defines & imports {{{
 
 %define EOK		0x00
@@ -132,8 +128,8 @@ _DllMain: ; {{{
 	ret
 	
 ; }}}
-; --- patSH3r_init {{{
-init:
+
+init: ; {{{
 
 	; initializes everything
 	;
@@ -142,7 +138,7 @@ init:
 	;
 	; returns:
 	;	-
-	;
+	; ---------------------------------------------------------------------
 
 	pushad
 	call	_sh3_init
@@ -150,9 +146,9 @@ init:
 	jne	.failure
 
 	push	inisec
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_sec]
-	test	eax, eax
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_SECEXIST]
+	test	al, al
 	jz	.exit
 
 	mov	ebx, patches
@@ -177,25 +173,8 @@ init:
 ; }}}
 ; sh3 functions & variables {{{
 section .data
-_sh3_maincfg	dd	0x00544698		; handle to main.cfg
 esimact:	dd	0
-fmgrdll:	dd	0
 esimact_fn	db	"EnvSim.act", 0
-fmgrdll_fn:	db	"filemanager.dll", 0
-
-; Config value functions
-;
-; arg 1: ini-section
-; arg 2: config-value
-; arg 3: default value
-;
-; C++ ini-object @ ecx
-;
-_sh3_cfg_sec		dd	0x00005760	; Find section
-_sh3_cfg_yn		dd	0x00004730	; Get Yes/No
-_sh3_cfg_int		dd	0x00004590	; Get int
-_sh3_cfg_flt		dd	0x00004610	; Get float
-_sh3_cfg_str		dd	0x000059b0	; Get string
 
 ; --- _sh3_mvcrew
 ;
@@ -237,17 +216,6 @@ _sh3_get_message:	dd	0x004ca800
 
 section .text ; ---------------------------------------------------------------
 _sh3_init:
-
-	push	fmgrdll_fn
-	call	_LoadLibraryA@4
-	cmp	eax, 0
-	je	.failure
-	mov	[fmgrdll], eax
-	add	[_sh3_cfg_sec], eax
-	add	[_sh3_cfg_yn], eax
-	add	[_sh3_cfg_int], eax
-	add	[_sh3_cfg_flt], eax
-	add	[_sh3_cfg_str], eax
 
 	push	esimact_fn
 	call	_LoadLibraryA@4
@@ -519,8 +487,8 @@ _ptc_smartpo_init:
 	push	dword 0			; push default 'No'
 	push	ptc_smartpo_cfg
 	push	inisec			; "PATSH3R"
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_yn]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_YN]
 	cmp	al, 1
 	jne	.exit_ok
 
@@ -588,8 +556,8 @@ _ptc_alertwo_init:
 	push	dword 0			; push default 'No'
 	push	ptc_alertwo_cfg
 	push	inisec			; push "PATSH3R"
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_yn]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_YN]
 	cmp	al, 1
 	je	.go
 	mov	al, EOK
@@ -689,8 +657,8 @@ _ptc_repairt_init:
 	mov	dword [esp], 0		; push default 'off' (0.0)
 	push	ptc_repairt_cfg
 	push	inisec
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_flt]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_FLT]
 	fldz
 	fcomip	st0, st1
 	jnz	.go
@@ -741,8 +709,8 @@ _ptc_nvision_init:
 	push	dword 0			; push default 'off' (0.0)
 	push	ptc_nvision_cfg
 	push	inisec
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_flt]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_FLT]
 	fldz
 	fcomip	st0, st1
 	jnz	.go
@@ -815,8 +783,8 @@ _ptc_absbrig_init:
 	push	0			; default 'No'
 	push	ptc_absbrig_cfg
 	push	inisec
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_yn]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_YN]
 	test	eax, eax
 	jnz	.go
 	ret
@@ -941,8 +909,8 @@ _ptc_trgtrpt_init:
 	push	0			; default 'No'
 	push	ptc_trgtrpt_cfg
 	push	inisec
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_yn]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_YN]
 	test	eax, eax
 	jnz	.go
 	ret
@@ -972,15 +940,15 @@ _ptc_trgtrpt_init:
 	push	0
 	push	ptc_trgtrpt_cwo
 	push	inisec
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_int]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_INT]
 	mov	[ptc_trgtrpt_wo_msg], eax
 
 	push	0
 	push	ptc_trgtrpt_cso
 	push	inisec
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_int]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_INT]
 	mov	[ptc_trgtrpt_so_msg], eax
 
 	mov	eax, EOK
@@ -1089,8 +1057,8 @@ _ptc_report_init:
 	push	0	; default 'No'
 	push	ptc_report_cfg
 	push	inisec
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_yn]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_YN]
 	test	eax, eax
 	jz	.exit
 

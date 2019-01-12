@@ -19,9 +19,6 @@ endstruc
 
 extern	_time
 extern  _free
-extern	_sh3_maincfg
-extern	_sh3_cfg_int
-extern	_sh3_cfg_str
 
 extern	_MultiByteToWideChar@24
 extern	_WideCharToMultiByte@32
@@ -228,8 +225,8 @@ sub_type_string: ; {{{
 	push	0
 	push	dword 0x00520a14	; "SubmarineType"
 	push	dword 0x00520a0c	; "PLAYER"
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_int]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_INT]
 	mov	edx, 224
 	mul	edx
 	add	dword [esp], eax	; add type offset
@@ -237,8 +234,8 @@ sub_type_string: ; {{{
 	push	0
 	push	dword 0x005209f8	; "SubmarineVersion"
 	push	dword 0x00520a0c	; "PLAYER"
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_int]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_INT]
 	mov	edx, 20
 	mul	edx
 	add	eax, dword [esp]	; add version offset
@@ -267,7 +264,7 @@ setup_post_data: ; {{{
 	push	0
 	push	report_strName
 	push	report_strPLAYER
-	mov	ecx, [_sh3_maincfg]
+	mov	ecx, SH3_MAINCFG
 	call	[SH3_CFG_STRP]
 	mov	ecx, 52
 	mov	esi, eax
@@ -278,8 +275,8 @@ setup_post_data: ; {{{
 	push	0
 	push	report_strRank
 	push	report_strPLAYER
-	mov	ecx, [_sh3_maincfg]
-	call	[_sh3_cfg_int]
+	mov	ecx, SH3_MAINCFG
+	call	[SH3_CFG_INT]
 	mov	[post_buf + report.rank], eax
 
 	; --- set submarine type ----------------------------------------------
@@ -297,7 +294,7 @@ setup_post_data: ; {{{
 	push	report_strUnitName
 	push	report_strPLAYER_SUB
 	mov	ecx, [report_plrcfg]
-	call	[_sh3_cfg_str]
+	call	[SH3_CFG_STR]
 
 	; --- set heading and speed -------------------------------------------
 	mov	eax, [0x00554698]
