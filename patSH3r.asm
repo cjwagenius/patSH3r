@@ -43,7 +43,7 @@ extern _WriteProcessMemory@20
 
 global _DllMain
 
-section .bss
+section .bss ; ----------------------------------------------------------------
 exeproc			resd	1	; sh3.exes process id (-1)
 
 section .data
@@ -53,7 +53,8 @@ incept_init:		db	7, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, \
 				   ASM_NOOP, ASM_NOOP
 return_init		dd	0x405a82
 inisec:			db	"PATSH3R", 0
-section .text
+
+section .text ; ---------------------------------------------------------------
 _DllMain: ; {{{
 
 	; patches sh3.exe to call patSH3r_init later if attaching
@@ -128,7 +129,6 @@ _DllMain: ; {{{
 	ret
 	
 ; }}}
-
 init: ; {{{
 
 	; initializes everything
@@ -147,7 +147,7 @@ init: ; {{{
 
 	push	inisec
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_SECEXIST]
+	call	[_sh3_cfg_secexist]
 	test	al, al
 	jz	.exit
 
@@ -175,19 +175,6 @@ init: ; {{{
 section .data
 esimact:	dd	0
 esimact_fn	db	"EnvSim.act", 0
-
-; --- _sh3_mvcrew
-;
-; moves a crew member from one index to another.
-;
-; arguments:
-;	1	from idx
-;	2	to idx
-;
-; returns:
-;	-
-;
-_sh3_mvcrew		dd	0x00428370
 
 ; --- _sh3_get_closest_ship
 ;
@@ -488,7 +475,7 @@ _ptc_smartpo_init:
 	push	ptc_smartpo_cfg
 	push	inisec			; "PATSH3R"
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_YN]
+	call	[_sh3_cfg_yn]
 	cmp	al, 1
 	jne	.exit_ok
 
@@ -545,7 +532,7 @@ _ptc_smartpo_init:
 ;
 section .data
 ptc_alertwo_cfg:	db	"AlertWatchOfficer", 0
-ptc_alertwo_rtn		dd	0x0042d097
+ptc_alertwo_rtn		dd	0x42d097
 ptc_alertwo		db	6, ASM_JMP, 0xcc, 0xcc, 0xcc, 0xcc, ASM_NOOP
 
 section .text
@@ -557,7 +544,7 @@ _ptc_alertwo_init:
 	push	ptc_alertwo_cfg
 	push	inisec			; push "PATSH3R"
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_YN]
+	call	[_sh3_cfg_yn]
 	cmp	al, 1
 	je	.go
 	mov	al, EOK
@@ -566,7 +553,7 @@ _ptc_alertwo_init:
 	.go:
 	mov	esi, ptc_alertwo
 	mov	eax, alertwo
-	mov	edi, 0x0042d08f	; address of interception
+	mov	edi, 0x42d08f	; address of interception
 	call	patch_mem
 
 	.exit:
@@ -581,11 +568,10 @@ alertwo:
 	call	alertwo_findwo
 	cmp	eax, -1
 	je	.exit
-	push	dword 0
-	push	OFFCR_BRIDG
-	push	eax
+	mov	esi, eax
+	mov	edi, OFFCR_BRIDG
 	mov	ecx, ebp
-	call	[_sh3_mvcrew]
+	call	_sh3_mvcrew
 
 	.exit:
 	popad
@@ -658,7 +644,7 @@ _ptc_repairt_init:
 	push	ptc_repairt_cfg
 	push	inisec
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_FLT]
+	call	[_sh3_cfg_flt]
 	fldz
 	fcomip	st0, st1
 	jnz	.go
@@ -710,7 +696,7 @@ _ptc_nvision_init:
 	push	ptc_nvision_cfg
 	push	inisec
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_FLT]
+	call	[_sh3_cfg_flt]
 	fldz
 	fcomip	st0, st1
 	jnz	.go
@@ -784,7 +770,7 @@ _ptc_absbrig_init:
 	push	ptc_absbrig_cfg
 	push	inisec
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_YN]
+	call	[_sh3_cfg_yn]
 	test	eax, eax
 	jnz	.go
 	ret
@@ -910,7 +896,7 @@ _ptc_trgtrpt_init:
 	push	ptc_trgtrpt_cfg
 	push	inisec
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_YN]
+	call	[_sh3_cfg_yn]
 	test	eax, eax
 	jnz	.go
 	ret
@@ -941,14 +927,14 @@ _ptc_trgtrpt_init:
 	push	ptc_trgtrpt_cwo
 	push	inisec
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_INT]
+	call	[_sh3_cfg_int]
 	mov	[ptc_trgtrpt_wo_msg], eax
 
 	push	0
 	push	ptc_trgtrpt_cso
 	push	inisec
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_INT]
+	call	[_sh3_cfg_int]
 	mov	[ptc_trgtrpt_so_msg], eax
 
 	mov	eax, EOK
@@ -1058,7 +1044,7 @@ _ptc_report_init:
 	push	ptc_report_cfg
 	push	inisec
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_YN]
+	call	[_sh3_cfg_yn]
 	test	eax, eax
 	jz	.exit
 

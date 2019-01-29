@@ -1,6 +1,5 @@
 ; vim: ft=nasm fdm=marker fmr={{{,}}}
 
-
 %define SENSOR_VISUAL	0x01
 %define SENSOR_HYDRO	0x0c
 
@@ -24,7 +23,7 @@
 %define OFFCR_REPEA	0x0b
 
 %define SH3_CREWARR	0x5F6238
-%define SH3_CREWSZ	228
+%define SH3_MAINCFG	0x544698
 
 struc crew 
 	.name		resb	52 ;   -(uses only 50)
@@ -63,9 +62,7 @@ struc crew
 	.notused_e	resb	 1 ;
 endstruc
 
-%define SH3_MAINCFG 0x544698
-
-; --- SH3_CFG_FLT
+; --- _sh3_cfg_flt
 ;
 ; [ filemanager.dll/GetPrivateProfileFloat ]
 ;
@@ -78,9 +75,9 @@ endstruc
 ; return:
 ;	float
 ;
-%define SH3_CFG_FLT 0x51D0A8
+%define _sh3_cfg_flt 0x51D0A8
 
-; --- SH3_CFG_INT
+; --- _sh3_cfg_int
 ;
 ; [ filemanager.dll/GetPrivateProfileInt ]
 ;
@@ -93,9 +90,9 @@ endstruc
 ; return:
 ;	int
 ;
-%define SH3_CFG_INT 0x51D08C
+%define _sh3_cfg_int 0x51D08C
 
-; --- SH3_CFG_SECEXIST
+; --- _sh3_cfg_secexist
 ;
 ; [ filemanager.dll/SectionExists ]
 ;
@@ -107,9 +104,9 @@ endstruc
 ;	true	if found
 ;	false	if not found
 ;
-%define SH3_CFG_SECEXIST 0x51D174
+%define _sh3_cfg_secexist 0x51D174
 
-; --- SH3_CFG_STR
+; --- _sh3_cfg_str
 ;
 ; [ filemanager.dll/GetPrivateProfileStringA ]
 ;
@@ -122,10 +119,11 @@ endstruc
 ;
 ; return:
 ;	?
-%define SH3_CFG_STR 0x51D098
+;
+%define _sh3_cfg_str 0x51D098
 
 ;
-; --- SH3_CFG_STRP
+; --- _sh3_cfg_strp
 ;
 ; [ filemanager.dll/GetPrivateProfileStringPtr ]
 ;
@@ -138,9 +136,9 @@ endstruc
 ; return:
 ;	char*
 ;
-%define SH3_CFG_STRP 0x51D094
+%define _sh3_cfg_strp 0x51D094
 
-; --- SH3_CFG_YN
+; --- _sh3_cfg_yn
 ;
 ; [ filemanager.dll/GetPrivateProfileYesNo ]
 ;
@@ -154,4 +152,6 @@ endstruc
 ;	true	on "Yes"
 ;	false	on "No"
 ;
-%define SH3_CFG_YN 0x51D134
+%define _sh3_cfg_yn 0x51D134
+
+extern _sh3_mvcrew

@@ -38,7 +38,7 @@ _gametime_to_secs: ; {{{
 	;
 	; notes:
 	;	Since the year 1939 is out of range for epoch (time_t),
-	;	we replace the year with 1995 instead. This since 1995-,
+	;	we replace the year with 1995 instead. This 'cause 1995-,
 	;	2006, have the same calendars as the years 1939-1950.
 	;	Then we subtract the in-game seconds with epoch 1995
 	;	(1995-01-01 00:00:00) to get the equal amount of seconds
