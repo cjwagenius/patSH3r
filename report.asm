@@ -60,7 +60,7 @@ _career_get_namep:
 	push	0x51E65C	; "Name"
 	push	0x520A0C	; "PLAYER"
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_STRP]
+	call	[_sh3_cfg_strp]
 	pop	ecx
 	ret
 
@@ -226,7 +226,7 @@ sub_type_string: ; {{{
 	push	dword 0x00520a14	; "SubmarineType"
 	push	dword 0x00520a0c	; "PLAYER"
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_INT]
+	call	[_sh3_cfg_int]
 	mov	edx, 224
 	mul	edx
 	add	dword [esp], eax	; add type offset
@@ -235,7 +235,7 @@ sub_type_string: ; {{{
 	push	dword 0x005209f8	; "SubmarineVersion"
 	push	dword 0x00520a0c	; "PLAYER"
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_INT]
+	call	[_sh3_cfg_int]
 	mov	edx, 20
 	mul	edx
 	add	eax, dword [esp]	; add version offset
@@ -265,7 +265,7 @@ setup_post_data: ; {{{
 	push	report_strName
 	push	report_strPLAYER
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_STRP]
+	call	[_sh3_cfg_strp]
 	mov	ecx, 52
 	mov	esi, eax
 	lea	edi, [post_buf+report.name]
@@ -276,7 +276,7 @@ setup_post_data: ; {{{
 	push	report_strRank
 	push	report_strPLAYER
 	mov	ecx, SH3_MAINCFG
-	call	[SH3_CFG_INT]
+	call	[_sh3_cfg_int]
 	mov	[post_buf + report.rank], eax
 
 	; --- set submarine type ----------------------------------------------
@@ -294,7 +294,7 @@ setup_post_data: ; {{{
 	push	report_strUnitName
 	push	report_strPLAYER_SUB
 	mov	ecx, [report_plrcfg]
-	call	[SH3_CFG_STR]
+	call	[_sh3_cfg_str]
 
 	; --- set heading and speed -------------------------------------------
 	mov	eax, [0x00554698]
@@ -380,7 +380,7 @@ _career_get_id: ; {{{
 	mov	ebp, esp
 	sub	esp, 12
 
-	lea	eax, [SH3_CREWARR+SH3_CREWSZ+64] ; offset 60 of crew-index 1
+	lea	eax, [SH3_CREWARR+crew_size+64] ; offset 60 of crew-index 1
 	mov	[ebp-4], eax
 	mov	eax, [eax]
 	cmp	eax, 0
