@@ -657,6 +657,11 @@ alertwo_findwo:
 
 ; }}}
 ; --- _ptc_repairt_init {{{
+;
+; When SH3 loads and starts a game, it checks whether we have checked the
+; 'Realistic Repair Time' setting. We intercept there and provides a better
+; value (float) to use, than the SH3 hardcoded ones.
+;
 section .bss
 ptc_repairt_fac:	resd	1
 
@@ -672,8 +677,8 @@ _ptc_repairt_init:
 	push	inisec
 	mov	ecx, SH3_MAINCFG
 	call	[_sh3_cfg_flt]
-	fldz
-	fcomip	st0, st1
+	fldz				; check if value is configured
+	fcomip	st0, st1		;
 	jnz	.go
 	fstp	st0
 	jmp	.exit_ok
@@ -684,11 +689,11 @@ _ptc_repairt_init:
 	mov	[esp+4], dword ptc_repairt_fac
 	lea	eax, [esp+4]
 	mov	[esp], eax
-	push	0
-	push	4
-	push	dword [esp+8]
-	push	0x0041df76
-	push	dword [exeproc]
+	push	0			; alter the float* that SH3 reads when
+	push	4			; a game is loading.
+	push	dword [esp+8]		; normally it reads a pointer to a 2.0
+	push	0x0041df76		; float (if realistic is enabled) or
+	push	dword [exeproc]		; a 1.0 float otherwise
 	call	_WriteProcessMemory@20
 	add	esp, 8
 	test	eax, eax
