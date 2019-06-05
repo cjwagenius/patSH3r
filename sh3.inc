@@ -178,6 +178,17 @@ endstruc
 ;	true	on "Yes"
 ;	false	on "No"
 ;
-%define _sh3_cfg_yn 0x51D134
+%define _sh3_cfg_yn 0x0051D134
 
-extern _sh3_mvcrew
+; --- _sh3_mvcrew
+;
+; moves a crew member from one index to another.
+;
+; arguments:
+;	1	from idx
+;	2	to idx
+;
+; returns:
+;	-
+;
+%define _sh3_mvcrew	0x00428370

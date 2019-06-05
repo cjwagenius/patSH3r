@@ -598,7 +598,7 @@ alertwo:
 	mov	esi, eax
 	mov	edi, OFFCR_BRIDG
 	mov	ecx, ebp
-	call	_sh3_mvcrew
+	call	[_sh3_mvcrew]
 
 	.exit:
 	popad
