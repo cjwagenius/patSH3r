@@ -26,9 +26,79 @@
 ; For more information, please refer to <http://unlicense.org/>
 ;
 
-
 %include "misc.inc"
 
 section .bss ; ----------------------------------------------------------------
 _buf:			resb	BUFSZ	; general working buffer
+
+; --- memory functions {{{
+;
+; memory allocations are stored in an array that will be freed at exit. The
+; array works like a LIFO-stack. Allocations are being appended to the array,
+; while freeing are always being always done to the last item in the array.
+;
+;		   ! Does not handle memory allocation error !
+;
+extern _free
+extern _realloc
+
+section .data
+mallocs:		dd	0 ; array of memory allocations
+mallocs_mem:		dd	0 ; num pointers allocated for 'mallocs'
+mallocs_len:		dd	0 ; num pointer used in 'mallocs'
+
+section .text
+malloc: ; {{{ In: ecx = size_to_allocate, Out: eax = pointer
+	;
+	; allocates new memory.
+	; 
+	push	edx
+	push	ecx
+	mov	ecx, [mallocs_len]
+	inc	ecx
+	cmp	ecx, dword [mallocs_mem]	; if mallocs_mem doesn't need
+	jb	.alloc				; to be expanded
+
+	; expand mallocs-array
+	add	dword [mallocs_mem], 8
+	mov	eax, [mallocs_mem]
+	mov	edx, 4
+	mul	edx
+	push	eax
+	push	dword [mallocs]
+	call	_realloc
+	add	esp, 8
+	mov	[mallocs], eax
+
+	.alloc:
+	; size already on stack, so we don't have to push it
+	push	dword 0
+	call	_realloc
+	add	esp, 4
+	mov	ecx, dword [mallocs_len]
+	mov	ecx, dword [mallocs+ecx*4]
+	mov	[ecx], eax
+	inc	dword [mallocs_len]
+	add	esp, 4	; removed popped ecx
+
+	pop	edx
+	ret
+
+; }}}
+free: ; {{{ In: None, Out: none
+      ;
+      ; frees the last made allocation
+      ;
+	mov	eax, [mallocs_len]
+	test	eax, eax
+	jz	.exit
+	mov	eax, [mallocs+eax*4]
+	push	eax
+	call	_free
+	add	esp, 4
+
+	.exit:
+	ret
+
+; }}}
 

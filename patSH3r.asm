@@ -54,8 +54,6 @@ extern _report_send	; report.asm
 %define DLL_DETACH	0x00
 %define DLL_ATTACH	0x01
 
-extern _free
-extern _realloc
 extern _sprintf
 extern _snprintf
 extern _strstr
@@ -355,61 +353,6 @@ patch_mem:
 
 	.failure:
 	mov	eax, EMEMW
-	ret
-
-; }}}
-; --- memory functions {{{
-section .data
-mallocs:		dd	0
-mallocs_mem:		dd	0
-mallocs_len:		dd	0
-
-section .text
-malloc: ; {{{ ecx -> eax | T: edx
-
-	push	ecx
-	mov	ecx, [mallocs_len]
-	inc	ecx
-	cmp	ecx, dword [mallocs_mem]
-	jb	.alloc
-
-	; expand mallocs-array
-	sub	esp, 4
-	add	dword [mallocs_mem], 8
-	mov	eax, [mallocs_mem]
-	mov	edx, 4
-	mul	edx
-	mov	dword [esp], eax
-	push	dword [mallocs]
-	call	_realloc
-	add	esp, 8
-	mov	[mallocs], eax
-
-	.alloc:
-	; size already on stack
-	push	dword 0
-	call	_realloc
-	add	esp, 4
-	mov	ecx, dword [mallocs_len]
-	mov	edx, dword [mallocs+ecx*4]
-	mov	[edx], eax
-	inc	dword [mallocs_len]
-
-	pop	ecx
-	ret
-
-; }}}
-free: ; {{{
-
-	mov	eax, [mallocs_len]
-	test	eax, eax
-	jz	.exit
-	mov	eax, [mallocs+eax*4]
-	push	eax
-	call	_free
-	add	esp, 4
-
-	.exit:
 	ret
 
 ; }}}

@@ -13,5 +13,5 @@ install:
 	copy /y patSH3r.act "$(SH3_FOLDER)"
 
 clean:
-	del *.o patSH3r.act
+	rm *.o patSH3r.act
 

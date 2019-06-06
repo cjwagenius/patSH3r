@@ -30,3 +30,6 @@
 
 extern _buf
 
+extern _malloc
+extern _free
+
