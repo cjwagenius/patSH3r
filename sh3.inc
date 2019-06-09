@@ -191,4 +191,4 @@ endstruc
 ; returns:
 ;	-
 ;
-%define _sh3_mvcrew	0x00428370
+extern _sh3_mvcrew

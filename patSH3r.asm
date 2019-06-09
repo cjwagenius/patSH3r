@@ -538,8 +538,9 @@ alertwo:
 	call	alertwo_findwo
 	cmp	eax, -1
 	je	.exit
-	mov	esi, eax
-	mov	edi, OFFCR_BRIDG
+	push	dword 0
+	push	OFFCR_BRIDG
+	push	eax
 	mov	ecx, ebp
 	call	[_sh3_mvcrew]
 
